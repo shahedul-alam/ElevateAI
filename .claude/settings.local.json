@@ -1,0 +1,10 @@
+{
+  "enabledPlugins": {
+    "andrej-karpathy-skills@karpathy-skills": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx ctx7@latest setup)"
+    ]
+  }
+}

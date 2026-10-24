@@ -1,0 +1,12 @@
+{
+  "name": "elevateai",
+  "private": true,
+  "workspaces": ["client", "server"],
+  "scripts": {
+    "dev": "bun --filter '*' dev",
+    "dev:client": "bun --filter @elevateai/client dev",
+    "dev:server": "bun --filter @elevateai/server dev",
+    "build": "bun --filter @elevateai/client build",
+    "typecheck": "bun --filter @elevateai/server typecheck"
+  }
+}
