@@ -1,26 +1,16 @@
-import cors from 'cors'
-import express from 'express'
-import helmet from 'helmet'
-import { connectDb, disconnectDb, isDbConnected } from './db'
-import { env } from './env'
-import { errorHandler, notFound } from './middleware/errors'
+import { createApp } from './app'
+import { connectDb, disconnectDb } from './config/db'
+import { env } from './config/env'
+import { ensureAdmin } from './modules/auth/auth.service'
 
-const app = express()
-
-app.use(helmet())
-app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }))
-// Better Auth mounts its handler here, before express.json(), in the auth step.
-app.use(express.json())
-
-app.get('/api/health', async (_req, res) => {
-  const db = await isDbConnected()
-  res.status(db ? 200 : 503).json({ status: db ? 'ok' : 'degraded', db })
-})
-
-app.use(notFound)
-app.use(errorHandler)
+const app = createApp()
 
 await connectDb()
+// Idempotent: creates the admin on first boot, does nothing afterwards.
+if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD) {
+  const { created } = await ensureAdmin(env.ADMIN_EMAIL, env.ADMIN_PASSWORD)
+  if (created) console.log(`Seeded admin ${env.ADMIN_EMAIL}`)
+}
 const server = app.listen(env.PORT, () => console.log(`Server listening on http://localhost:${env.PORT}`))
 
 async function shutdown() {

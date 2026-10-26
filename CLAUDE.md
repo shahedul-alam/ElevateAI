@@ -8,12 +8,15 @@ Bun-workspaces monorepo (`client`, `server`). Note: `IMPLEMENTATION_PLAN.md` des
 
 - `client/` (`@elevateai/client`): React 19 + Vite 8 + Tailwind 4 + TypeScript. Linted with oxlint. Still the Vite scaffold (`src/App.tsx`).
 - `server/` (`@elevateai/server`): Express 5 + TypeScript on Bun, Prisma 7 (`@prisma/adapter-pg`) + PostgreSQL with pgvector, Zod 4, helmet, cors.
-  - `src/index.ts`: app wiring, `/api/health`, graceful shutdown. Better Auth must be mounted before `express.json()` (comment in file).
-  - `src/env.ts`: Zod-validated `process.env`; exits on invalid config. Import `env` from here, never read `process.env` elsewhere.
-  - `src/db.ts`: single `prisma` client plus `connectDb` / `isDbConnected` / `disconnectDb`.
-  - `src/middleware/errors.ts`: `notFound`, `errorHandler`, and `HttpError(status, message)`. Error responses are `{ error: { message } }`; 5xx messages are masked.
-  - `prisma/schema.prisma`: no models yet; added per phase. Embedding columns use `Unsupported("vector(1536)")` and raw SQL.
-  - Prisma client is generated to `server/generated/prisma` (gitignored); import from `../generated/prisma/client`.
+  - Feature modules with MVC: `src/modules/<name>/` holds `<name>.routes.ts` (paths + middleware only), `<name>.controller.ts` (HTTP in/out only, no business logic), `<name>.service.ts` (business logic + Prisma, no `req`/`res`) and `<name>.schema.ts` (Zod input schemas) when the module takes input. The Prisma schema is the Model layer; there is no view/serializer layer. Create only the files a module needs. Flow: routes -> controller -> service -> Prisma.
+  - `src/index.ts`: startup and graceful shutdown. `src/app.ts`: `createApp()` (helmet, cors, auth handler, json, `/api` router, error handlers). `src/routes.ts`: mounts module routers under `/api`; register new modules here.
+  - `src/config/env.ts`: Zod-validated `process.env`; exits on invalid config. Import `env` from here, never read `process.env` elsewhere. `src/config/db.ts`: single `prisma` client plus `connectDb` / `isDbConnected` / `disconnectDb`.
+  - `src/middleware/errors.ts`: shared `notFound`, `errorHandler`, `HttpError(status, message)`. Error responses are `{ error: { message } }`; 5xx messages are masked.
+  - `modules/auth`: `auth.config.ts` is the Better Auth instance (email/password, Prisma adapter, DB-backed rate limits); `role` is an extra user field, sign-up must send `candidate` or `employer` (enforced in `hooks.before`, for every caller) and `/update-user` cannot change it. `auth.routes.ts` serves `/api/auth/*` and is mounted before `express.json()`. `auth.middleware.ts` has `requireAuth` (sets `req.auth`) and `requireRole(...roles)`. `auth.service.ts` has `ensureAdmin`.
+  - `modules/user`: `GET /api/me`. `modules/health`: `GET /api/health`.
+  - `scripts/seed-admin.ts`: thin wrapper around `ensureAdmin` using `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+  - `prisma/schema.prisma`: Better Auth models (User, Session, Account, Verification, RateLimit) written by hand because the Better Auth CLI needs a native build; more models are added per phase. Embedding columns use `Unsupported("vector(1536)")` and raw SQL.
+  - Prisma client is generated to `server/generated/prisma` (gitignored); import from `../../generated/prisma/client` (see `src/config/db.ts`).
 - `docker-compose.yml`: `pgvector/pgvector:pg17` on host port **5433** (user/password/db: `postgres`/`postgres`/`elevateai`).
 
 ## Commands (run from repo root)
@@ -28,6 +31,7 @@ bun run typecheck                # server only (tsc --noEmit)
 cd server && bun run db:generate # prisma generate (required after install / schema change)
 cd server && bun run db:migrate  # prisma migrate dev
 cd server && bun run db:deploy   # prisma migrate deploy
+cd server && bun run db:seed-admin # create the admin user from ADMIN_EMAIL / ADMIN_PASSWORD
 cd client && bun run lint        # oxlint
 ```
 
@@ -35,12 +39,13 @@ No test runner is configured yet.
 
 ## Environment
 
-Copy `server/.env.example` to `server/.env`. Required: `DATABASE_URL` (matches the docker-compose port 5433), `BETTER_AUTH_SECRET` (min 32 chars). Defaults: `PORT=4000`, `CLIENT_ORIGIN=http://localhost:5173`, `BETTER_AUTH_URL=http://localhost:4000`. Never commit real secrets; `.env*` is gitignored except `.env.example`.
+Copy `server/.env.example` to `server/.env`. Required: `DATABASE_URL` (matches the docker-compose port 5433), `BETTER_AUTH_SECRET` (min 32 chars). Optional: `ADMIN_EMAIL`, `ADMIN_PASSWORD` (min 12 chars); when both are set the server seeds the admin on startup (idempotent). Defaults: `PORT=4000`, `CLIENT_ORIGIN=http://localhost:5173`, `BETTER_AUTH_URL=http://localhost:4000`. Never commit real secrets; `.env*` is gitignored except `.env.example`.
 
 ## Conventions
 
 - Server is ESM TypeScript run directly by Bun; no build step. Imports are extensionless relative paths.
 - Style: no semicolons, single quotes, 2-space indent, trailing commas.
-- Validate all external input with Zod; throw `HttpError` for expected failures.
+- Validate all external input with Zod (schemas in `<name>.schema.ts`); throw `HttpError` for expected failures.
 - Migrations: the first one enables pgvector (`CREATE EXTENSION IF NOT EXISTS vector`). Vector indexes (HNSW, cosine) go in hand-edited migration SQL.
-- Planned stack (not yet built): Better Auth (roles `candidate | employer | admin`), BullMQ + Redis workers, Socket.IO, Vercel AI SDK for LLM calls. Keep to these when implementing those phases.
+- Auth: Better Auth with roles `candidate | employer | admin`; guard routes with `requireAuth` / `requireRole`. Email verification and password reset are not built yet.
+- Planned stack (not yet built): BullMQ + Redis workers, Socket.IO, Vercel AI SDK for LLM calls. Keep to these when implementing those phases.
