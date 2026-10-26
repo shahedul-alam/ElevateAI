@@ -1,11 +1,15 @@
 import cors from 'cors'
 import express from 'express'
+import helmet from 'helmet'
 import { connectDb, disconnectDb, isDbConnected } from './db'
+import { env } from './env'
+import { errorHandler, notFound } from './middleware/errors'
 
 const app = express()
-const port = Number(process.env.PORT ?? 4000)
 
-app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173', credentials: true }))
+app.use(helmet())
+app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }))
+// Better Auth mounts its handler here, before express.json(), in the auth step.
 app.use(express.json())
 
 app.get('/api/health', async (_req, res) => {
@@ -13,8 +17,11 @@ app.get('/api/health', async (_req, res) => {
   res.status(db ? 200 : 503).json({ status: db ? 'ok' : 'degraded', db })
 })
 
+app.use(notFound)
+app.use(errorHandler)
+
 await connectDb()
-const server = app.listen(port, () => console.log(`Server listening on http://localhost:${port}`))
+const server = app.listen(env.PORT, () => console.log(`Server listening on http://localhost:${env.PORT}`))
 
 async function shutdown() {
   server.close()
