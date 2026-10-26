@@ -1,17 +1,23 @@
-import mongoose from 'mongoose'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient } from '../generated/prisma/client'
+
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) throw new Error('DATABASE_URL is not set')
+
+export const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) })
 
 export async function connectDb() {
-  const uri = process.env.MONGODB_URI
-  if (!uri) throw new Error('MONGODB_URI is not set')
-
-  mongoose.connection.on('disconnected', () => console.warn('MongoDB disconnected'))
-  mongoose.connection.on('reconnected', () => console.log('MongoDB reconnected'))
-  mongoose.connection.on('error', (err) => console.error('MongoDB error:', err))
-
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 })
-  console.log(`MongoDB connected (${mongoose.connection.name})`)
+  await prisma.$connect()
+  console.log('PostgreSQL connected')
 }
 
-export const isDbConnected = () => mongoose.connection.readyState === 1
+export async function isDbConnected() {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    return true
+  } catch {
+    return false
+  }
+}
 
-export const disconnectDb = () => mongoose.disconnect()
+export const disconnectDb = () => prisma.$disconnect()

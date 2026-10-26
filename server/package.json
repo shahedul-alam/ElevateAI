@@ -6,17 +6,22 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:generate": "bunx --bun prisma generate",
+    "db:migrate": "bunx --bun prisma migrate dev",
+    "db:deploy": "bunx --bun prisma migrate deploy"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.0.0",
+    "@prisma/client": "^7.0.0",
     "cors": "^2.8.6",
-    "express": "^5.3.0",
-    "mongoose": "^9.11.4"
+    "express": "^5.3.0"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "prisma": "^7.0.0",
     "typescript": "^7.0.2"
   }
 }

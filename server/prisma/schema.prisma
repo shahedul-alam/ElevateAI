@@ -1,0 +1,12 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Models are added per phase (see IMPLEMENTATION_PLAN.md section 3).
+// Embedding columns use Unsupported("vector(1536)") and are queried with $queryRaw;
+// enable pgvector in the first migration: CREATE EXTENSION IF NOT EXISTS vector;

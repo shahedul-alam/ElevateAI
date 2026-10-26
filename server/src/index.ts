@@ -8,8 +8,8 @@ const port = Number(process.env.PORT ?? 4000)
 app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173', credentials: true }))
 app.use(express.json())
 
-app.get('/api/health', (_req, res) => {
-  const db = isDbConnected()
+app.get('/api/health', async (_req, res) => {
+  const db = await isDbConnected()
   res.status(db ? 200 : 503).json({ status: db ? 'ok' : 'degraded', db })
 })
 
