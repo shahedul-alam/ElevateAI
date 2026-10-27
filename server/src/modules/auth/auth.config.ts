@@ -5,6 +5,7 @@ import { prisma } from '../../config/db'
 import { env } from '../../config/env'
 
 export const SIGNUP_ROLES = ['candidate', 'employer'] as const
+export const CLIENT_IP_HEADER = 'x-client-ip'
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: 'postgresql' }),
@@ -46,7 +47,11 @@ export const auth = betterAuth({
       '/sign-up/email': { window: 60, max: 5 },
     },
   },
-  advanced: { useSecureCookies: process.env.NODE_ENV === 'production' },
+  advanced: {
+    useSecureCookies: process.env.NODE_ENV === 'production',
+    // Set by auth.routes.ts from Express's req.ip (never taken from the client), so rate limits are per client.
+    ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
+  },
 })
 
 export type Session = typeof auth.$Infer.Session

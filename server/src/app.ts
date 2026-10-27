@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import { env } from './config/env'
 import { errorHandler, notFound } from './middleware/errors'
 import { authRouter } from './modules/auth/auth.routes'
+import { homeRouter } from './modules/home/home.routes'
 import { apiRouter } from './routes'
 
 export function createApp() {
@@ -15,6 +16,7 @@ export function createApp() {
   app.use(authRouter)
   app.use(express.json())
 
+  app.use(homeRouter)
   app.use('/api', apiRouter)
 
   app.use(notFound)
