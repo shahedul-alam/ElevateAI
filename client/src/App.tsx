@@ -1,20 +1,25 @@
-import { useEffect, useState } from 'react'
+import { Route, Routes } from 'react-router'
+
+import { Navbar } from '@/components/navbar'
+import { Toaster } from '@/components/ui/sonner'
+import { useSession } from '@/features/auth/use-session'
+import Home from '@/pages/home'
+import Login from '@/pages/login'
+import Register from '@/pages/register'
 
 function App() {
-  const [status, setStatus] = useState('checking...')
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((r) => r.json())
-      .then((d) => setStatus(d.status))
-      .catch(() => setStatus('unreachable'))
-  }, [])
+  useSession()
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-2">
-      <h1 className="text-4xl font-bold">ElevateAI</h1>
-      <p className="text-sm text-neutral-500">API status: {status}</p>
-    </main>
+    <>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+      </Routes>
+      <Toaster richColors />
+    </>
   )
 }
 
