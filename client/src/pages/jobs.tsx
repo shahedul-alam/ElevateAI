@@ -6,11 +6,14 @@ import { NativeSelect } from '@/components/native-select'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { useAuthStore } from '@/features/auth/auth.store'
 import { searchCatalog } from '@/features/catalog/catalog.api'
 import { formatSalary } from '@/features/jobs/format'
 import type { JobListFilters } from '@/features/jobs/jobs.api'
 import { usePublicJobs } from '@/features/jobs/use-jobs'
+import { useRecommended } from '@/features/matching/use-matching'
 import { WORK_MODES } from '@/features/profile/profile.schema'
+import { getApiError } from '@/lib/api'
 
 const NO_FILTERS: JobListFilters = { q: '', workMode: '', domainId: '' }
 
@@ -18,6 +21,8 @@ export default function Jobs() {
   const [filters, setFilters] = useState<JobListFilters>(NO_FILTERS)
   const [search, setSearch] = useState('')
   const jobs = usePublicJobs(filters)
+  const isCandidate = useAuthStore((s) => s.user?.role === 'candidate')
+  const recommended = useRecommended(isCandidate)
 
   const domains = useQuery({
     queryKey: ['catalog', 'domain', 'all'],
@@ -37,6 +42,8 @@ export default function Jobs() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold tracking-tight">Jobs</h1>
+
+      {isCandidate && <Recommended query={recommended} />}
 
       <form onSubmit={onSearch} className="mb-6 grid gap-2 sm:grid-cols-[1fr_10rem_12rem_auto]">
         <Input
@@ -125,5 +132,53 @@ export default function Jobs() {
         </Button>
       )}
     </main>
+  )
+}
+
+function Recommended({ query }: { query: ReturnType<typeof useRecommended> }) {
+  if (query.isPending) return null
+  if (query.isError) {
+    // 409 means no resume yet: that is a prompt, not a failure.
+    if (getApiError(query.error).status !== 409) return null
+    return (
+      <p className="mb-6 rounded-lg border p-3 text-sm text-muted-foreground">
+        <Link to="/resume" className="underline">
+          Build your resume
+        </Link>{' '}
+        to see jobs ranked by how well you match.
+      </p>
+    )
+  }
+  if (query.data.jobs.length === 0) return null
+
+  return (
+    <section aria-labelledby="recommended-heading" className="mb-8">
+      <h2 id="recommended-heading" className="mb-3 text-lg font-semibold">
+        Recommended for you
+      </h2>
+      <ul className="flex flex-col gap-3">
+        {query.data.jobs.map((job) => (
+          <li key={job.id}>
+            <Link to={`/jobs/${job.id}`} className="block rounded-xl focus-visible:outline-2">
+              <Card className="transition-colors hover:bg-accent/40">
+                <CardContent className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium">{job.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {[job.employerName, job.location, formatSalary(job.salaryMin, job.salaryMax)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </div>
+                  <p className="text-lg font-semibold tabular-nums" aria-label={`Match score ${job.score} percent`}>
+                    {job.score}%
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

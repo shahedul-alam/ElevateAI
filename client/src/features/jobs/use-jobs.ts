@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { MATCH_KEY } from '@/features/matching/use-matching'
 import {
   changeJobStatusRequest,
   createJobRequest,
@@ -39,7 +40,11 @@ export const useMyJob = (id: string | undefined) =>
 
 function useRefreshJobs() {
   const queryClient = useQueryClient()
-  return () => queryClient.invalidateQueries({ queryKey: JOBS_KEY })
+  // Gap views and recommendations score against the job's requirements, so they refresh too.
+  return () => {
+    queryClient.invalidateQueries({ queryKey: JOBS_KEY })
+    queryClient.invalidateQueries({ queryKey: MATCH_KEY })
+  }
 }
 
 export function useCreateJob() {

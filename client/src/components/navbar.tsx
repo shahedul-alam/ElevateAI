@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 const candidateLinks = [
   { to: '/jobs', label: 'Jobs' },
   { to: '/resume', label: 'Resume' },
+  { to: '/applications', label: 'Applications' },
   { to: '/dashboard', label: 'Dashboard' },
 ]
 

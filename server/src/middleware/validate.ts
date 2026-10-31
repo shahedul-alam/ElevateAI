@@ -1,6 +1,14 @@
 import type { RequestHandler } from 'express'
-import type { z } from 'zod'
+import { z } from 'zod'
 import { HttpError } from './errors'
+
+/** A malformed id can never match a row: answer 404 instead of letting the DB reject it. */
+export const requireUuidParam =
+  (name = 'id'): RequestHandler =>
+  (req, _res, next) => {
+    if (!z.uuid().safeParse(req.params[name]).success) throw new HttpError(404, 'Not found')
+    next()
+  }
 
 const parseOrThrow = (schema: z.ZodType, input: unknown) => {
   const result = schema.safeParse(input)

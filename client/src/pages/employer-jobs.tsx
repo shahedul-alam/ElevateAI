@@ -77,6 +77,9 @@ function JobsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/employer/jobs/${job.id}/applicants`}>Applicants</Link>
+                    </Button>
                     {job.status === 'active' && (
                       <Button variant="ghost" size="sm" asChild>
                         <Link to={`/jobs/${job.id}`}>View</Link>

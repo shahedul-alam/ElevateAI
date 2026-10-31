@@ -9,12 +9,26 @@ Source: `ElevateAI MVP Project Proposal.md`. Decisions confirmed with the produc
 | Hosting | Split: React client on Vercel. Express API + BullMQ workers + WebSocket server on a persistent host (Railway/Render/Fly.io). Managed PostgreSQL with pgvector (Neon, Supabase or Railway) + Redis (Upstash or Redis Cloud). |
 | Modules | In scope: Auth/RBAC, 1 Resume Evaluator, 4 Gap Visualizer, 5 Job Matching, 6 Job Portal, 7 Dashboards, Notifications. Modules 2 and 3 do not exist in the proposal, so they are deferred. |
 | Database | PostgreSQL + Prisma ORM (v7, `@prisma/adapter-pg`). Migrations via `prisma migrate`. |
-| Vector search | pgvector (HNSW index, cosine distance); embeddings via OpenAI `text-embedding-3-small` (1536 dims) through Vercel AI SDK. |
-| Resumes | Upload only (PDF/DOCX), parsed in memory. Store extracted text + structured JSON, **not** the file. Profile-to-PDF export is post-MVP. |
+| Vector search | Superseded by section 1a: not part of the match score. pgvector is kept for a later retrieval-only use (embeddings via OpenAI `text-embedding-3-small`, HNSW cosine). |
+| Resumes | Superseded by section 1a: candidates build their resume with forms; upload/parsing is deferred. Profile-to-PDF export is post-MVP. |
 | Email | Resend (default; swappable behind a `Mailer` interface). |
-| Out of scope | Free-form chat/messaging, payments, admin analytics, resume builder/export, mobile apps, multi-language. |
+| Out of scope | Free-form chat/messaging, payments, admin analytics, resume export, mobile apps, multi-language. |
 
 Assumption to confirm: "Basic Messaging" means status-change email + in-app notification only, per the proposal text.
+
+### 1a. Revision: form-based resumes and deterministic matching
+
+Goal: a match score must be reproducible. If a candidate restores an earlier resume state, the score for a job returns to exactly what it was. An LLM-parsed resume or an embedding blend cannot guarantee that, so:
+
+- **Forms, not uploads.** Candidates build the resume in a form; employers post jobs in a form. The Resume Evaluator (upload, parsing, 0-100 evaluation) is deferred and would later fill the same form model.
+- **Pure scoring function.** `matchEngine(profileContent, jobContent, ENGINE_V1)` in `server/src/modules/matching/` uses no DB, clock, randomness or network. Arithmetic is integer basis points. The engine version is stored with every result; changing weights or rules means a new `ENGINE_V2`, and old scores stay as they were.
+- **Dimensions and weights (fixed, global):** skills 40, experience 20, domain 15, leadership 10, certifications 15. A dimension the job does not specify is skipped and the remaining weights renormalise. No education dimension, no employer-tunable weights (scores stay comparable across jobs). Location, work mode and salary are eligibility flags next to the score, never part of it.
+- **Skills** are required (weight 2) or preferred (weight 1) with a minimum level 1-5 and optional minimum years; candidates state level 1-5 plus years. Credit is `min(level/minLevel, 1)`, or 0.7 of that plus 0.3 of `min(years/minYears, 1)` when the job sets minimum years.
+- **Curated catalog** (`CatalogTerm`/`CatalogAlias`, ids like `skill:react`) for skills, certifications and domains, so equivalent spellings score the same. Terms outside the catalog are kept in an `unmapped` list that the engine ignores.
+- **No clock:** experience is entered as years per role, so "present" never changes a score over time.
+- **Immutable versions.** `ProfileVersion` and `JobVersion` rows are content-hashed (sha256 of canonical JSON). Saving identical content reuses a version; restoring a version only repoints `currentVersionId`, so the same version always scores the same.
+- **Frozen applications.** Applying stores the profile version, job version, score, breakdown and engine version. Employers see that score; the candidate's live gap view and recommendations use the current profile.
+- **Embeddings** are retrieval-only and not built yet. Recommendations currently score the newest 200 active jobs in process, best first.
 
 ## 2. Architecture
 
@@ -37,36 +51,35 @@ e2e/            Playwright
 
 - Conventions: `cuid`/`uuid` string ids, `createdAt`/`updatedAt` on every table, enums for statuses and roles, `jsonb` for nested structures that are not queried individually.
 - `users` (Better Auth managed): id, email, role, name.
-- `candidateProfiles`: userId, headline, skills (`jsonb` of {name, years, level}), experience/education (`jsonb`), certifications[], industries[], leadershipLevel, totalYears, location, preferences, `embedding vector(1536)`, `parsedResumeId` (FK).
+- `candidateProfiles` + `profileVersions`: built (see 1a). One profile per user with `currentVersionId`; each version holds the content as `jsonb` (headline, skills {termId, level, years}, roles {title, years, domainId}, leadershipLevel, certIds, unmapped, preferences) and a `contentHash`. The original design (below) is superseded: ~~skills (`jsonb` of {name, years, level}), experience/education, certifications[], industries[], totalYears, location, `embedding vector(1536)`, `parsedResumeId`~~.
+- `catalogTerms` / `catalogAliases`: built; kind `skill|certification|domain`, stable `kind:slug` ids.
 - `employerProfiles`: userId, company name, website, size, industry.
 - `resumeEvaluations`: userId (nullable for anonymous), extractedText, structured `jsonb`, score 0–100, strengths[], weaknesses[], keywordRecs[], status enum (`queued|processing|done|failed`), createdAt, `expiresAt` for anonymous rows (purged by a scheduled BullMQ job).
-- `jobs`: employerId, title, description, requirements (`jsonb`: skills[], minYears, domain, leadershipLevel, certifications[]), location, workMode, salary range, status enum (`draft|active|closed`), `embedding vector(1536)`.
-- `applications`: jobId, candidateId, status enum (`applied|under_review|rejected|hired`), matchScore, matchBreakdown (`jsonb`), plus an `applicationStatusHistory` table (applicationId, from, to, at). Unique constraint on (jobId, candidateId); FKs to `jobs` and `users`.
+- `jobs` + `jobVersions`: built. `jobs` holds employerId, status enum (`draft|active|closed`), `currentVersionId`, `publishedAt`; each immutable version holds the post as `jsonb` (title, description, skills {termId, required, minLevel, minYears?}, minYears, domainId, minDomainYears, leadershipLevel, certIds, location, workMode, salary range). No embedding column yet.
+- `applications`: built. jobId, candidateId, `profileVersionId`, `jobVersionId`, status enum (`applied|under_review|rejected|hired`), matchScore, matchBreakdown (`jsonb`, ids only), `engineVersion`, plus an `applicationStatusHistory` table (applicationId, from, to, at). Unique constraint on (jobId, candidateId); FKs to `jobs`, `users` and the two version tables.
 - `notifications`: userId, type, payload, readAt.
 - Indexes: jobs full-text (`tsvector` GIN, via raw migration) + (status, createdAt); applications (jobId, matchScore desc); HNSW `vector_cosine_ops` indexes on `jobs.embedding` and `candidateProfiles.embedding`.
 - pgvector: the first migration runs `CREATE EXTENSION IF NOT EXISTS vector`. Prisma has no native vector type, so embedding columns are declared `Unsupported("vector(1536)")`; reads and writes go through a small `VectorStore` module using `$queryRaw`/`$executeRaw` (cast to `text` on read). Vector indexes live in hand-edited migration SQL.
 
 ## 4. Module Design
 
-**Resume Evaluator**
+**Resume Evaluator** (deferred, see 1a; the design below is kept for when upload is added)
 1. `POST /resumes/evaluate` (multipart, 5 MB cap, MIME + magic-byte check). Works for anonymous visitors (rate limited by IP) and logged-in candidates.
 2. Parse with `pdf-parse`/`unpdf` and `mammoth` (DOCX). Reject scanned/image-only PDFs with a clear message (OCR is post-MVP).
 3. Enqueue BullMQ job `evaluateResume`: LLM extracts a structured profile and produces score, strengths, weaknesses, keyword recs. The rubric is fixed in the prompt (skills relevance, impact/quantification, structure, clarity, completeness) so scores are stable. Temperature low.
 4. Client gets the result via WebSocket event, with polling fallback on `GET /resumes/:id`.
 5. A logged-in candidate can "Apply to profile", which merges the parsed data into their profile (with review step) and generates the profile embedding.
 
-**Profile Gap Visualizer**
-- Dimensions: technical skills, years of experience, domain, leadership, certifications. Each is scored 0–100 against a job's requirements by deterministic functions (skill-set overlap weighted by level, `min(years/required,1)`, etc.).
-- `GET /jobs/:id/gap` returns per-dimension scores + missing items. UI: Chart.js radar plus breakdown bars (Chart.js chosen over D3 for lower effort).
+**Profile Gap Visualizer** (built)
+- Dimensions: technical skills, years of experience, domain, leadership, certifications, scored 0–100 by the pure engine (see 1a for the formulas).
+- `GET /jobs/:id/gap` (candidate) returns the score, per-dimension scores, missing skills/certifications by name, eligibility flags and the candidate's application if any. UI: Chart.js radar (needs at least three applicable dimensions) plus breakdown bars on the job page.
 
-**Job Matching**
-- `matchScore = 0.6 × deterministic + 0.4 × semantic`, weights in config.
-  - Deterministic: weighted mean of the five gap dimensions, plus hard filters (location/work mode).
-  - Semantic: cosine similarity of candidate vs. job embeddings, normalized to 0–100.
-- Same function powers the gap view, the "recommended jobs" list (pgvector `ORDER BY embedding <=> $1 LIMIT N`, then re-rank deterministically), and the recruiter ranking, so numbers stay consistent. Score is computed at apply time and stored with its breakdown; recomputed by a worker when the job or profile changes materially.
-- Unit tested heavily with fixtures, since it is the core value.
+**Job Matching** (built; supersedes the earlier 60/40 blend)
+- `matchScore` is the weighted mean of the applicable dimensions, rounded. No semantic/embedding term.
+- One function, `scoreMatch` in `matching.service.ts`, powers the gap view, the "recommended jobs" list (`GET /jobs/recommended`, jobs not yet applied to, best first, job id as tiebreak) and the score stored when applying, so numbers stay consistent. The stored score is never recomputed: it belongs to the profile and job versions captured at apply time. Applicants are ranked by it (earlier applicant, then id, break ties).
+- Unit tested with fixtures: hand-computed golden values, revert invariance, order invariance, monotonicity.
 
-**Job Posting Portal**: employer CRUD with state machine `draft → active → closed` (and `active ↔ draft`); only active jobs are public; closing blocks new applications; embedding generated on publish; ownership checks on every route. Candidate list per job paginated and sorted by matchScore.
+**Job Posting Portal**: employer CRUD with state machine `draft → active → closed` (and `active ↔ draft`); only active jobs are public; closing blocks new applications; a post needs at least one scored requirement to be published; edits create new `JobVersion`s; ownership checks on every route. Candidate list per job paginated and sorted by matchScore.
 
 **Dashboards**
 - Candidate: application tracker (four status columns/filters), recommended jobs, saved evaluation.
@@ -113,7 +126,7 @@ Estimate ≈ 7–8 weeks for one full-time developer using AI coding agents; pha
 | Risk | Mitigation |
 |---|---|
 | Vercel can't host BullMQ/WebSocket | Split hosting (decided) |
-| Inconsistent LLM scores erode trust | Fixed rubric, low temperature, schema output, golden-set regression test |
+| Inconsistent scores erode trust | Match scores come from a pure, versioned function over immutable content-hashed versions (see 1a); LLM scoring only returns with the deferred Resume Evaluator (fixed rubric, low temperature, schema output, golden-set regression test) |
 | Poor parsing (scanned PDFs, odd layouts) | Detect and explain failures; OCR post-MVP |
 | Cold-start for matching (few jobs/candidates) | Seed realistic data; show deterministic score even without embeddings |
 | AI cost abuse via the free evaluator | Quotas, rate limits, optional CAPTCHA |

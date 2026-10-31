@@ -9,7 +9,7 @@ export type ProfileContent = {
   leadershipLevel: number
   certIds: string[]
   unmapped: string[]
-  preferences: { locations: string[]; workModes: string[] }
+  preferences: { locations: string[]; workModes: string[]; minSalary?: number }
 }
 
 export function profileContent(overrides: Partial<ProfileContent> = {}): ProfileContent {

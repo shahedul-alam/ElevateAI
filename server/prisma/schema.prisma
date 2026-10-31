@@ -23,6 +23,7 @@ model User {
   accounts         Account[]
   candidateProfile CandidateProfile?
   jobs             Job[]
+  applications     Application[]
 
   @@unique([email])
   @@map("user")
@@ -128,13 +129,14 @@ model CandidateProfile {
 }
 
 model ProfileVersion {
-  id          String            @id @default(uuid())
-  profileId   String
-  profile     CandidateProfile  @relation("AllVersions", fields: [profileId], references: [id], onDelete: Cascade)
-  contentHash String
-  content     Json
-  createdAt   DateTime          @default(now())
-  currentOf   CandidateProfile? @relation("CurrentVersion")
+  id           String            @id @default(uuid())
+  profileId    String
+  profile      CandidateProfile  @relation("AllVersions", fields: [profileId], references: [id], onDelete: Cascade)
+  contentHash  String
+  content      Json
+  createdAt    DateTime          @default(now())
+  currentOf    CandidateProfile? @relation("CurrentVersion")
+  applications Application[]
 
   @@unique([profileId, contentHash])
   @@map("profileVersion")
@@ -149,16 +151,17 @@ enum JobStatus {
 // Same versioning idea as profiles: edits create immutable JobVersion rows (identical content
 // reuses one), so an application can point at the exact requirements it was scored against.
 model Job {
-  id               String       @id @default(uuid())
+  id               String        @id @default(uuid())
   employerId       String
-  employer         User         @relation(fields: [employerId], references: [id], onDelete: Cascade)
-  status           JobStatus    @default(draft)
-  currentVersionId String?      @unique
-  currentVersion   JobVersion?  @relation("CurrentJobVersion", fields: [currentVersionId], references: [id])
-  versions         JobVersion[] @relation("AllJobVersions")
+  employer         User          @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  status           JobStatus     @default(draft)
+  currentVersionId String?       @unique
+  currentVersion   JobVersion?   @relation("CurrentJobVersion", fields: [currentVersionId], references: [id])
+  versions         JobVersion[]  @relation("AllJobVersions")
+  applications     Application[]
   publishedAt      DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@index([employerId, createdAt])
   @@index([status, publishedAt])
@@ -166,16 +169,64 @@ model Job {
 }
 
 model JobVersion {
-  id          String   @id @default(uuid())
-  jobId       String
-  job         Job      @relation("AllJobVersions", fields: [jobId], references: [id], onDelete: Cascade)
-  contentHash String
-  content     Json
-  createdAt   DateTime @default(now())
-  currentOf   Job?     @relation("CurrentJobVersion")
+  id           String        @id @default(uuid())
+  jobId        String
+  job          Job           @relation("AllJobVersions", fields: [jobId], references: [id], onDelete: Cascade)
+  contentHash  String
+  content      Json
+  createdAt    DateTime      @default(now())
+  currentOf    Job?          @relation("CurrentJobVersion")
+  applications Application[]
 
   @@unique([jobId, contentHash])
   @@map("jobVersion")
+}
+
+enum ApplicationStatus {
+  applied
+  under_review
+  rejected
+  hired
+}
+
+// An application freezes the exact profile and job versions it was scored against, plus the
+// result, so the score an employer sees never changes when either side is edited later.
+// NoAction on the version FKs: deleting a user cascades both the application and the versions
+// in one statement, which Restrict would block.
+model Application {
+  id               String                     @id @default(uuid())
+  jobId            String
+  job              Job                        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId      String
+  candidate        User                       @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  profileVersionId String
+  profileVersion   ProfileVersion             @relation(fields: [profileVersionId], references: [id], onDelete: NoAction)
+  jobVersionId     String
+  jobVersion       JobVersion                 @relation(fields: [jobVersionId], references: [id], onDelete: NoAction)
+  status           ApplicationStatus          @default(applied)
+  matchScore       Int
+  matchBreakdown   Json
+  engineVersion    String
+  history          ApplicationStatusHistory[]
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@index([jobId, matchScore(sort: Desc)])
+  @@index([candidateId, createdAt])
+  @@map("application")
+}
+
+model ApplicationStatusHistory {
+  id            String             @id @default(uuid())
+  applicationId String
+  application   Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  createdAt     DateTime           @default(now())
+
+  @@index([applicationId, createdAt])
+  @@map("applicationStatusHistory")
 }
 
 model RateLimit {

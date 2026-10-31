@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatSalary } from '@/features/jobs/format'
+import { MatchPanel } from '@/features/matching/match-panel'
 import { usePublicJob } from '@/features/jobs/use-jobs'
 import { LEADERSHIP_LABELS, LEVEL_LABELS } from '@/features/profile/profile.schema'
 
@@ -44,6 +45,8 @@ export default function JobDetail() {
         <h1 className="mt-2 text-2xl font-bold tracking-tight">{c.title}</h1>
         <p className="text-sm text-muted-foreground">{meta.join(' · ')}</p>
       </div>
+
+      <MatchPanel jobId={job.data.id} />
 
       <Card>
         <CardHeader>
