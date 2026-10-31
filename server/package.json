@@ -10,7 +10,9 @@
     "db:generate": "bunx --bun prisma generate",
     "db:migrate": "bunx --bun prisma migrate dev",
     "db:deploy": "bunx --bun prisma migrate deploy",
-    "db:seed-admin": "bun scripts/seed-admin.ts"
+    "db:seed-admin": "bun scripts/seed-admin.ts",
+    "test:db:setup": "bun scripts/test-db.ts setup",
+    "test:db:reset": "bun scripts/test-db.ts reset"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.0.0",

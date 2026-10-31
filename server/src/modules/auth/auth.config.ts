@@ -38,7 +38,8 @@ export const auth = betterAuth({
     }),
   },
   rateLimit: {
-    enabled: true,
+    // Production only, so dev and e2e runs are not throttled.
+    enabled: env.NODE_ENV === 'production',
     storage: 'database',
     window: 60,
     max: 100,
@@ -48,7 +49,7 @@ export const auth = betterAuth({
     },
   },
   advanced: {
-    useSecureCookies: process.env.NODE_ENV === 'production',
+    useSecureCookies: env.NODE_ENV === 'production',
     // Set by auth.routes.ts from Express's req.ip (never taken from the client), so rate limits are per client.
     ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] },
   },

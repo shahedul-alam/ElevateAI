@@ -5,3 +5,7 @@ dist
 !.env.example
 *.log
 server/generated
+!.env.test.example
+playwright-report
+test-results
+blob-report

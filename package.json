@@ -7,6 +7,14 @@
     "dev:client": "bun --filter @elevateai/client dev",
     "dev:server": "bun --filter @elevateai/server dev",
     "build": "bun --filter @elevateai/client build",
-    "typecheck": "bun --filter @elevateai/server typecheck"
+    "typecheck": "bun --filter @elevateai/server typecheck",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install chromium",
+    "test:db:setup": "bun --filter @elevateai/server test:db:setup",
+    "test:db:reset": "bun --filter @elevateai/server test:db:reset"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   }
 }

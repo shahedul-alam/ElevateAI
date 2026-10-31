@@ -1,6 +1,7 @@
 import { toNodeHandler } from 'better-auth/node'
 import express, { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
+import { env } from '../../config/env'
 import { HttpError } from '../../middleware/errors'
 import { validate } from '../../middleware/validate'
 import { auth, CLIENT_IP_HEADER } from './auth.config'
@@ -12,6 +13,8 @@ const limiter = (message: string) =>
   rateLimit({
     windowMs: 60_000,
     limit: 5,
+    // Only enforced in production, so dev and e2e runs are not throttled.
+    skip: () => env.NODE_ENV !== 'production',
     handler: (_req, res) => {
       res.status(429).json({ error: { message } })
     },

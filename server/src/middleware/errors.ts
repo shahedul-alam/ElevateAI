@@ -17,7 +17,13 @@ export const notFound: RequestHandler = (_req, res) => {
 }
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  const status = err instanceof HttpError ? err.status : 500
+  // Client errors from middleware (e.g. body-parser's malformed JSON) carry a 4xx status and expose: true.
+  const status =
+    err instanceof HttpError
+      ? err.status
+      : err?.expose === true && err.status >= 400 && err.status < 500
+        ? err.status
+        : 500
   if (status >= 500) console.error(err)
   res.status(status).json({
     error: {

@@ -11,6 +11,6 @@ export default defineConfig({
   },
   server: {
     // Same-origin API calls in dev (no CORS / cookie issues)
-    proxy: { '/api': 'http://localhost:4000' },
+    proxy: { '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:4000' },
   },
 })
