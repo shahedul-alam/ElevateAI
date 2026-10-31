@@ -7,10 +7,12 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
     "db:generate": "bunx --bun prisma generate",
     "db:migrate": "bunx --bun prisma migrate dev",
     "db:deploy": "bunx --bun prisma migrate deploy",
     "db:seed-admin": "bun scripts/seed-admin.ts",
+    "db:seed-catalog": "bun scripts/seed-catalog.ts",
     "test:db:setup": "bun scripts/test-db.ts setup",
     "test:db:reset": "bun scripts/test-db.ts reset"
   },

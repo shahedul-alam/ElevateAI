@@ -21,8 +21,8 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      // Creates the test database and applies migrations first, so a fresh clone just works.
-      command: 'bun run test:db:setup && bun src/index.ts',
+      // Creates the test database, applies migrations and seeds the catalog first, so a fresh clone just works.
+      command: 'bun run test:db:setup && bun run db:seed-catalog && bun src/index.ts',
       cwd: './server',
       url: `http://localhost:${SERVER_PORT}/api/health`,
       reuseExistingServer: false,

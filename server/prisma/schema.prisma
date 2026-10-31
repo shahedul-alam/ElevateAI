@@ -11,16 +11,18 @@ datasource db {
 // Embedding columns use Unsupported("vector(1536)") and are queried with $queryRaw.
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          String    @default("candidate")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+  id               String            @id
+  name             String
+  email            String
+  emailVerified    Boolean           @default(false)
+  image            String?
+  role             String            @default("candidate")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  candidateProfile CandidateProfile?
+  jobs             Job[]
 
   @@unique([email])
   @@map("user")
@@ -72,6 +74,108 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+enum CatalogKind {
+  skill
+  certification
+  domain
+}
+
+enum CatalogStatus {
+  approved
+  pending
+}
+
+// Curated vocabulary for matching. Ids are stable `kind:slug` strings (set by the seed) so
+// stored profile/job versions stay valid across environments.
+model CatalogTerm {
+  id      String         @id
+  kind    CatalogKind
+  slug    String
+  name    String
+  status  CatalogStatus  @default(approved)
+  aliases CatalogAlias[]
+
+  @@unique([kind, slug])
+  @@map("catalogTerm")
+}
+
+model CatalogAlias {
+  id     String      @id @default(uuid())
+  termId String
+  term   CatalogTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  kind   CatalogKind
+  alias  String
+
+  @@unique([kind, alias])
+  @@index([termId])
+  @@map("catalogAlias")
+}
+
+// One live profile per candidate. Versions are immutable; saving identical content reuses the
+// existing row and restore only repoints currentVersionId, so a version always scores the same.
+model CandidateProfile {
+  id               String           @id @default(uuid())
+  userId           String           @unique
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentVersionId String?          @unique
+  currentVersion   ProfileVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions         ProfileVersion[] @relation("AllVersions")
+  createdAt        DateTime         @default(now())
+
+  @@map("candidateProfile")
+}
+
+model ProfileVersion {
+  id          String            @id @default(uuid())
+  profileId   String
+  profile     CandidateProfile  @relation("AllVersions", fields: [profileId], references: [id], onDelete: Cascade)
+  contentHash String
+  content     Json
+  createdAt   DateTime          @default(now())
+  currentOf   CandidateProfile? @relation("CurrentVersion")
+
+  @@unique([profileId, contentHash])
+  @@map("profileVersion")
+}
+
+enum JobStatus {
+  draft
+  active
+  closed
+}
+
+// Same versioning idea as profiles: edits create immutable JobVersion rows (identical content
+// reuses one), so an application can point at the exact requirements it was scored against.
+model Job {
+  id               String       @id @default(uuid())
+  employerId       String
+  employer         User         @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  status           JobStatus    @default(draft)
+  currentVersionId String?      @unique
+  currentVersion   JobVersion?  @relation("CurrentJobVersion", fields: [currentVersionId], references: [id])
+  versions         JobVersion[] @relation("AllJobVersions")
+  publishedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([employerId, createdAt])
+  @@index([status, publishedAt])
+  @@map("job")
+}
+
+model JobVersion {
+  id          String   @id @default(uuid())
+  jobId       String
+  job         Job      @relation("AllJobVersions", fields: [jobId], references: [id], onDelete: Cascade)
+  contentHash String
+  content     Json
+  createdAt   DateTime @default(now())
+  currentOf   Job?     @relation("CurrentJobVersion")
+
+  @@unique([jobId, contentHash])
+  @@map("jobVersion")
 }
 
 model RateLimit {

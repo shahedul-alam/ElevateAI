@@ -25,10 +25,17 @@ import { useAuthStore } from '@/features/auth/auth.store'
 import { SESSION_KEY } from '@/features/auth/use-session'
 import { cn } from '@/lib/utils'
 
-// Placeholder links: these routes do not exist yet.
-const links = [
+// /dashboard is a placeholder: that route does not exist yet.
+const candidateLinks = [
   { to: '/jobs', label: 'Jobs' },
   { to: '/resume', label: 'Resume' },
+  { to: '/dashboard', label: 'Dashboard' },
+]
+
+// Employers have no resume; they manage their postings instead.
+const employerLinks = [
+  { to: '/jobs', label: 'Jobs' },
+  { to: '/employer/jobs', label: 'Your jobs' },
   { to: '/dashboard', label: 'Dashboard' },
 ]
 
@@ -57,6 +64,7 @@ export function Navbar() {
   const user = useAuthStore((s) => s.user)
   const status = useAuthStore((s) => s.status)
   const signOut = useSignOut()
+  const links = user?.role === 'employer' ? employerLinks : candidateLinks
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
