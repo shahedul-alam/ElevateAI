@@ -33,7 +33,15 @@ export type ApplicantResume = {
 export type Applicant = {
   id: string
   candidateName: string
+  /** The candidate's contact email, or their account email when they set none. */
   candidateEmail: string
+  /** Current contact details, not frozen with the application. */
+  contact: {
+    phone: string
+    city: string
+    country: string
+    links: { label: string; url: string }[]
+  }
   headline: string
   totalYears: number
   status: ApplicationStatus

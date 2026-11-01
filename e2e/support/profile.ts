@@ -2,7 +2,31 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
 export type ProfileSkill = { termId: string; level: number; years: number }
 
+export type Contact = {
+  phone: string
+  email: string
+  city: string
+  country: string
+  linkedin: string
+  github: string
+  website: string
+  other: string
+}
+
+export const EMPTY_CONTACT: Contact = {
+  phone: '',
+  email: '',
+  city: '',
+  country: '',
+  linkedin: '',
+  github: '',
+  website: '',
+  other: '',
+}
+
+/** Contact is optional on save: leaving it out keeps what is stored. */
 export type ProfileContent = {
+  contact?: Partial<Contact>
   headline: string
   summary?: string
   skills: ProfileSkill[]
@@ -40,6 +64,12 @@ export async function saveProfileApi(request: APIRequestContext, content: Profil
   const res = await request.put('/api/candidate/profile', { data: content })
   expect(res.status(), await res.text()).toBe(200)
   return (await res.json()).profile as Version
+}
+
+export async function getProfileApi(request: APIRequestContext) {
+  const res = await request.get('/api/candidate/profile')
+  expect(res.status(), await res.text()).toBe(200)
+  return (await res.json()).profile as Version & { contact: Contact }
 }
 
 export async function listVersionsApi(request: APIRequestContext) {

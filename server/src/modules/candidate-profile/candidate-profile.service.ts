@@ -3,7 +3,12 @@ import { HttpError } from '../../middleware/errors'
 import { hashContent } from '../../lib/content-hash'
 import { assertApprovedTerms, termNamesFor } from '../catalog/catalog.service'
 import { canonicalizeProfile } from './candidate-profile.canonical'
-import { parseStoredProfile, type ProfileInput } from './candidate-profile.schema'
+import {
+  parseStoredContact,
+  parseStoredProfile,
+  type ProfileInput,
+  type ProfileSaveInput,
+} from './candidate-profile.schema'
 
 type VersionRow = { id: string; createdAt: Date; content: unknown }
 
@@ -40,20 +45,26 @@ export async function getProfile(userId: string) {
   })
   if (!profile?.currentVersion) return null
   const dto = toDto(profile.currentVersion, profile.currentVersionId)
-  return { ...dto, termNames: await termNames([dto.content]) }
+  return {
+    ...dto,
+    termNames: await termNames([dto.content]),
+    contact: parseStoredContact(profile.contact),
+  }
 }
 
 /** Saving content that already exists as a version reuses that row (and makes it current). */
-export async function saveProfile(userId: string, input: ProfileInput) {
-  await assertCatalogTerms(input)
-  const content = canonicalizeProfile(input)
+export async function saveProfile(userId: string, input: ProfileSaveInput) {
+  // Contact lives outside the versioned content, so it never changes the hash or creates a version.
+  const { contact, ...resume } = input
+  await assertCatalogTerms(resume)
+  const content = canonicalizeProfile(resume)
   const contentHash = hashContent(content)
 
   return prisma.$transaction(async (tx) => {
     const profile = await tx.candidateProfile.upsert({
       where: { userId },
-      update: {},
-      create: { userId },
+      update: contact ? { contact } : {},
+      create: { userId, ...(contact && { contact }) },
     })
     const version = await tx.profileVersion.upsert({
       where: { profileId_contentHash: { profileId: profile.id, contentHash } },

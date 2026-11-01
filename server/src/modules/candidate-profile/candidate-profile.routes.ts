@@ -7,12 +7,12 @@ import {
   putMyProfile,
   restoreMyVersion,
 } from './candidate-profile.controller'
-import { profileContentSchema } from './candidate-profile.schema'
+import { profileSaveSchema } from './candidate-profile.schema'
 
 export const candidateProfileRouter = Router()
 
 candidateProfileRouter.use('/candidate/profile', requireAuth, requireRole('candidate'))
 candidateProfileRouter.get('/candidate/profile', getMyProfile)
-candidateProfileRouter.put('/candidate/profile', validate(profileContentSchema), putMyProfile)
+candidateProfileRouter.put('/candidate/profile', validate(profileSaveSchema), putMyProfile)
 candidateProfileRouter.get('/candidate/profile/versions', getMyVersions)
 candidateProfileRouter.post('/candidate/profile/versions/:id/restore', restoreMyVersion)

@@ -10,8 +10,58 @@ export const LEADERSHIP_LABELS = ['None', 'Team lead', 'Manager', 'Director or a
 
 const years = z.number({ error: 'Enter a number' }).min(0, 'Must be 0 or more').max(60, 'Too large')
 
+const isHttpUrl = (value: string) => {
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+// Mirrors the server: only http(s) links are accepted, since employers see them as anchors.
+const link = z
+  .string()
+  .trim()
+  .max(200, 'Keep it under 200 characters')
+  .refine((v) => v === '' || isHttpUrl(v), 'Enter a full link starting with https://')
+
+/** Contact details live outside the versioned resume: they are current, editable and never scored. */
+export const contactFormSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .max(30, 'Keep it under 30 characters')
+    .refine((v) => v === '' || /^\+?[0-9\s().-]{5,25}$/.test(v), 'Enter a valid phone number'),
+  email: z
+    .string()
+    .trim()
+    .max(254, 'Too long')
+    .refine((v) => v === '' || z.email().safeParse(v).success, 'Enter a valid email address'),
+  city: z.string().trim().max(80, 'Keep it under 80 characters'),
+  country: z.string().trim().max(80, 'Keep it under 80 characters'),
+  linkedin: link,
+  github: link,
+  website: link,
+  other: link,
+})
+
+export type Contact = z.infer<typeof contactFormSchema>
+
+export const emptyContact: Contact = {
+  phone: '',
+  email: '',
+  city: '',
+  country: '',
+  linkedin: '',
+  github: '',
+  website: '',
+  other: '',
+}
+
 // Form-level shape: comma-separated lists and the salary stay text until submit (see toPayload).
 export const profileFormSchema = z.object({
+  contact: contactFormSchema,
   headline: z.string().trim().max(120, 'Keep it under 120 characters'),
   summary: z.string().trim().max(2000, 'Keep it under 2000 characters'),
   skills: z
@@ -82,6 +132,7 @@ const splitList = (text: string) =>
     .filter(Boolean)
 
 export const emptyForm: ProfileFormValues = {
+  contact: emptyContact,
   headline: '',
   summary: '',
   skills: [],
@@ -95,7 +146,8 @@ export const emptyForm: ProfileFormValues = {
   minSalary: '',
 }
 
-export const toForm = (c: ProfileContent): ProfileFormValues => ({
+export const toForm = (c: ProfileContent, contact: Contact): ProfileFormValues => ({
+  contact,
   headline: c.headline,
   summary: c.summary,
   skills: c.skills,
@@ -109,7 +161,11 @@ export const toForm = (c: ProfileContent): ProfileFormValues => ({
   minSalary: c.preferences.minSalary !== undefined ? String(c.preferences.minSalary) : '',
 })
 
-export const toPayload = (v: ProfileFormValues): ProfileContent => ({
+/** What a save sends: the versioned resume plus the separately stored contact details. */
+export type ProfileSavePayload = ProfileContent & { contact: Contact }
+
+export const toPayload = (v: ProfileFormValues): ProfileSavePayload => ({
+  contact: v.contact,
   headline: v.headline,
   summary: v.summary,
   skills: v.skills,

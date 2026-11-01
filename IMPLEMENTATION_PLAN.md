@@ -30,6 +30,7 @@ Goal: a match score must be reproducible. If a candidate restores an earlier res
 - **No clock:** experience is entered as years per role, so "present" never changes a score over time.
 - **Immutable versions.** `ProfileVersion` and `JobVersion` rows are content-hashed (sha256 of canonical JSON). Saving identical content reuses a version; restoring a version only repoints `currentVersionId`, so the same version always scores the same.
 - **Frozen applications.** Applying stores the profile version, job version, score, breakdown and engine version. Employers see that score; the candidate's live gap view and recommendations use the current profile.
+- **Contact details are not part of the versioned resume.** Phone, contact email (defaults to the account email), city and country (no street address), and LinkedIn/GitHub/website/other links live in a mutable `CandidateProfile.contact` record. They are current information: restoring an old version must not bring back an old phone number, editing them must not create a version, and they must be correctable or removable (immutable versions would keep every past value). Never scored, never in the content hash. Only employers with an applicant on their job see them, and they see the latest values, not a snapshot from application day. Links are http(s) only. The planned PDF export will combine the current contact record with the chosen resume version.
 - **Embeddings** are retrieval-only and not built yet. Recommendations currently score the newest 200 active jobs in process, best first.
 
 ## 2. Architecture

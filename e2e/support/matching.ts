@@ -24,6 +24,7 @@ export type Applicant = {
   id: string
   candidateName: string
   candidateEmail: string
+  contact: { phone: string; city: string; country: string; links: { label: string; url: string }[] }
   status: string
   matchScore: number
   engineVersion: string

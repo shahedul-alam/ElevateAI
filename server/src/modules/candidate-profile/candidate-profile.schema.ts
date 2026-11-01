@@ -61,3 +61,60 @@ export type ProfileInput = z.infer<typeof profileContentSchema>
 
 /** Stored versions predate later fields, so reading re-applies the schema defaults. */
 export const parseStoredProfile = (content: unknown): ProfileInput => profileContentSchema.parse(content)
+
+const isHttpUrl = (value: string) => {
+  try {
+    const { protocol } = new URL(value)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+// Links are rendered as anchors for employers, so only http(s) is allowed: a `javascript:` or
+// `data:` URL must never be storable.
+const optionalLink = z
+  .string()
+  .trim()
+  .max(200)
+  .refine((v) => v === '' || isHttpUrl(v), 'Enter a full link starting with https://')
+  .default('')
+
+/** Contact details: current, editable, never scored and never part of a profile version. */
+export const contactSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .max(30)
+    .refine((v) => v === '' || /^\+?[0-9\s().-]{5,25}$/.test(v), 'Enter a valid phone number')
+    .default(''),
+  // Overrides the account email on the resume; empty means "use the account email".
+  email: z
+    .string()
+    .trim()
+    .max(254)
+    .refine((v) => v === '' || z.email().safeParse(v).success, 'Enter a valid email address')
+    .default(''),
+  city: optionalText(80),
+  country: optionalText(80),
+  linkedin: optionalLink,
+  github: optionalLink,
+  website: optionalLink,
+  other: optionalLink,
+})
+
+export type ContactInput = z.infer<typeof contactSchema>
+
+export const emptyContact: ContactInput = contactSchema.parse({})
+
+/** Stored contact is JSON: anything that no longer validates reads as empty rather than leaking. */
+export const parseStoredContact = (value: unknown): ContactInput => {
+  const result = contactSchema.safeParse(value ?? {})
+  return result.success ? result.data : emptyContact
+}
+
+// `contact` is optional on save: leaving it out keeps what is stored, so clients that only send
+// resume content can never wipe contact details by accident.
+export const profileSaveSchema = profileContentSchema.extend({ contact: contactSchema.optional() })
+
+export type ProfileSaveInput = z.infer<typeof profileSaveSchema>

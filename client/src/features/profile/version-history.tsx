@@ -24,7 +24,8 @@ export function VersionHistory({ onRestore, restoring, hasUnsavedChanges }: Prop
         <CardTitle>Version history</CardTitle>
         <CardDescription>
           Every distinct save is kept. Restoring a version brings back its exact content, so it
-          matches jobs with the same scores as before.
+          matches jobs with the same scores as before. Your contact details are not versioned and stay
+          as they are.
         </CardDescription>
       </CardHeader>
       <CardContent>

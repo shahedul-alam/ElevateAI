@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAuthStore } from '@/features/auth/auth.store'
 import { searchCatalog } from '@/features/catalog/catalog.api'
 import { CatalogPicker } from '@/features/catalog/catalog-picker'
 import type { ProfileVersion } from '@/features/profile/profile.api'
@@ -43,6 +44,7 @@ export default function Resume() {
 
 function ResumeBuilder() {
   const profile = useProfile()
+  const accountEmail = useAuthStore((s) => s.user?.email ?? '')
   const save = useSaveProfile()
   const restore = useRestoreVersion()
   // Names of terms picked this session; the rest come with the loaded profile.
@@ -74,7 +76,7 @@ function ResumeBuilder() {
 
   // Load (or reload after a save/restore) the current version into the form.
   useEffect(() => {
-    if (profile.data) reset(toForm(profile.data.content))
+    if (profile.data) reset(toForm(profile.data.content, profile.data.contact))
   }, [profile.data, reset])
 
   const remember = (id: string, name: string) => setPicked((n) => ({ ...n, [id]: name }))
@@ -113,6 +115,107 @@ function ResumeBuilder() {
             Matching scores are calculated from exactly what you enter here.
           </p>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Contact details</CardTitle>
+            <CardDescription>
+              Only employers you apply to can see these, and they always see your latest details. They are
+              not part of your resume versions and do not affect your match score.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-phone">Phone</Label>
+              <Input
+                id="contact-phone"
+                type="tel"
+                autoComplete="tel"
+                placeholder="+1 555 0100"
+                aria-invalid={!!errors.contact?.phone}
+                {...register('contact.phone')}
+              />
+              <FieldError message={errors.contact?.phone?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-email">Contact email</Label>
+              <Input
+                id="contact-email"
+                type="email"
+                autoComplete="email"
+                placeholder={accountEmail || 'Defaults to your account email'}
+                aria-invalid={!!errors.contact?.email}
+                {...register('contact.email')}
+              />
+              <p className="text-xs text-muted-foreground">Leave empty to use your account email.</p>
+              <FieldError message={errors.contact?.email?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-city">City</Label>
+              <Input
+                id="contact-city"
+                autoComplete="address-level2"
+                aria-invalid={!!errors.contact?.city}
+                {...register('contact.city')}
+              />
+              <FieldError message={errors.contact?.city?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-country">Country</Label>
+              <Input
+                id="contact-country"
+                autoComplete="country-name"
+                aria-invalid={!!errors.contact?.country}
+                {...register('contact.country')}
+              />
+              <FieldError message={errors.contact?.country?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-linkedin">LinkedIn</Label>
+              <Input
+                id="contact-linkedin"
+                type="url"
+                placeholder="https://www.linkedin.com/in/..."
+                aria-invalid={!!errors.contact?.linkedin}
+                {...register('contact.linkedin')}
+              />
+              <FieldError message={errors.contact?.linkedin?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-github">GitHub</Label>
+              <Input
+                id="contact-github"
+                type="url"
+                placeholder="https://github.com/..."
+                aria-invalid={!!errors.contact?.github}
+                {...register('contact.github')}
+              />
+              <FieldError message={errors.contact?.github?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-website">Website or portfolio</Label>
+              <Input
+                id="contact-website"
+                type="url"
+                placeholder="https://"
+                aria-invalid={!!errors.contact?.website}
+                {...register('contact.website')}
+              />
+              <FieldError message={errors.contact?.website?.message} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="contact-other">Other link</Label>
+              <Input
+                id="contact-other"
+                type="url"
+                placeholder="https://"
+                aria-invalid={!!errors.contact?.other}
+                {...register('contact.other')}
+              />
+              <FieldError message={errors.contact?.other?.message} />
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

@@ -92,6 +92,28 @@ function ApplicantsPage() {
                       <p className="text-xs text-muted-foreground">
                         {[a.candidateEmail, a.headline, `${a.totalYears} yrs experience`].filter(Boolean).join(' · ')}
                       </p>
+                      {(a.contact.phone || a.contact.city || a.contact.country) && (
+                        <p className="text-xs text-muted-foreground">
+                          {joinParts(
+                            a.contact.phone ? `Phone: ${a.contact.phone}` : undefined,
+                            [a.contact.city, a.contact.country].filter(Boolean).join(', ') || undefined,
+                          )}
+                        </p>
+                      )}
+                      {a.contact.links.length > 0 && (
+                        <ul className="flex flex-wrap gap-x-3 text-xs">
+                          {a.contact.links.map((l) => {
+                            const href = safeHref(l.url)
+                            return href ? (
+                              <li key={l.label}>
+                                <a href={href} target="_blank" rel="noopener noreferrer" className="underline">
+                                  {l.label}
+                                </a>
+                              </li>
+                            ) : null
+                          })}
+                        </ul>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {STATUS_LABEL[a.status]} · applied {new Date(a.createdAt).toLocaleDateString()}
                       </p>
@@ -168,6 +190,16 @@ function ApplicantsPage() {
 }
 
 const joinParts = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' · ')
+
+/** The server only stores http(s) links; this is a second check before one becomes an href. */
+function safeHref(url: string) {
+  try {
+    const { protocol } = new URL(url)
+    return protocol === 'http:' || protocol === 'https:' ? url : null
+  } catch {
+    return null
+  }
+}
 
 /** Read-only view of the resume snapshot a candidate applied with. */
 function ResumeView({ resume }: { resume: ApplicantResume }) {

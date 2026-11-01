@@ -123,6 +123,10 @@ model CandidateProfile {
   currentVersionId String?          @unique
   currentVersion   ProfileVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   versions         ProfileVersion[] @relation("AllVersions")
+  // Phone, contact email, city/country and links. Deliberately outside the versions: it is current
+  // information (a restore must not bring back an old phone number), editing it must not create a
+  // version, and it can be corrected or removed. Never scored.
+  contact          Json?
   createdAt        DateTime         @default(now())
 
   @@map("candidateProfile")

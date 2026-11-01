@@ -1,5 +1,5 @@
 import { api } from '@/lib/api'
-import type { ProfileContent } from './profile.schema'
+import type { Contact, ProfileContent, ProfileSavePayload } from './profile.schema'
 
 export type ProfileVersion = {
   id: string
@@ -8,14 +8,17 @@ export type ProfileVersion = {
   content: ProfileContent
 }
 
-export type CurrentProfile = ProfileVersion & { termNames: Record<string, string> }
+export type CurrentProfile = ProfileVersion & {
+  termNames: Record<string, string>
+  contact: Contact
+}
 
 export async function fetchProfile() {
   const { data } = await api.get<{ profile: CurrentProfile | null }>('/candidate/profile')
   return data.profile
 }
 
-export async function saveProfileRequest(content: ProfileContent) {
+export async function saveProfileRequest(content: ProfileSavePayload) {
   const { data } = await api.put<{ profile: ProfileVersion }>('/candidate/profile', content)
   return data.profile
 }

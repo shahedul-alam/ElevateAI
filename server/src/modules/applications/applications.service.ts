@@ -2,7 +2,12 @@ import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import type { ApplicationStatus } from '../../../generated/prisma/client'
 import { termNamesFor } from '../catalog/catalog.service'
-import { parseStoredProfile, type ProfileInput } from '../candidate-profile/candidate-profile.schema'
+import {
+  parseStoredContact,
+  parseStoredProfile,
+  type ContactInput,
+  type ProfileInput,
+} from '../candidate-profile/candidate-profile.schema'
 import { parseStoredJob } from '../jobs/jobs.schema'
 import {
   loadCurrentProfile,
@@ -88,6 +93,17 @@ export async function listCandidateApplications(candidateId: string) {
   }))
 }
 
+/** Contact details as shown to an employer; empty fields and links are left out. */
+function contactView(c: ContactInput) {
+  const links = [
+    { label: 'LinkedIn', url: c.linkedin },
+    { label: 'GitHub', url: c.github },
+    { label: 'Website', url: c.website },
+    { label: 'Other', url: c.other },
+  ].filter((l) => l.url)
+  return { phone: c.phone, city: c.city, country: c.country, links }
+}
+
 /**
  * What an employer sees of the resume the candidate applied with. Preferences (location, work
  * mode, minimum salary) are the candidate's own and are left out.
@@ -122,7 +138,12 @@ export async function listApplicants(employerId: string, jobId: string, query: A
 
   const rows = await prisma.application.findMany({
     where: { jobId },
-    include: { candidate: { select: { name: true, email: true } }, profileVersion: true },
+    include: {
+      candidate: {
+        select: { name: true, email: true, candidateProfile: { select: { contact: true } } },
+      },
+      profileVersion: true,
+    },
     orderBy: [{ matchScore: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
     take: query.limit + 1,
     ...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
@@ -138,13 +159,17 @@ export async function listApplicants(employerId: string, jobId: string, query: A
     ]),
   )
 
+  // Live, not frozen: employers reach the candidate on their current details.
+  const contacts = page.map((a) => parseStoredContact(a.candidate.candidateProfile?.contact))
+
   const applicants = await Promise.all(
     page.map(async (a, i) => {
       const profile = profiles[i]!
       return {
         id: a.id,
         candidateName: a.candidate.name,
-        candidateEmail: a.candidate.email,
+        candidateEmail: contacts[i]!.email || a.candidate.email,
+        contact: contactView(contacts[i]!),
         headline: profile.headline,
         totalYears: Math.round(profile.roles.reduce((sum, r) => sum + r.years, 0) * 100) / 100,
         status: a.status,
