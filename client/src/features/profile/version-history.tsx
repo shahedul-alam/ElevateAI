@@ -1,3 +1,5 @@
+import { Link } from 'react-router'
+
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { ProfileVersion } from './profile.api'
@@ -24,8 +26,8 @@ export function VersionHistory({ onRestore, restoring, hasUnsavedChanges }: Prop
         <CardTitle>Version history</CardTitle>
         <CardDescription>
           Every distinct save is kept. Restoring a version brings back its exact content, so it
-          matches jobs with the same scores as before. Your contact details are not versioned and stay
-          as they are.
+          matches jobs with the same scores as before. Rearranging roles or education also counts as a new
+          version. Your contact details are not versioned and stay as they are.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -50,24 +52,34 @@ export function VersionHistory({ onRestore, restoring, hasUnsavedChanges }: Prop
                   </p>
                   <p className="truncate text-xs text-muted-foreground">{summarize(v)}</p>
                 </div>
-                {!v.isCurrent && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={restoring}
-                    onClick={() => {
-                      if (
-                        hasUnsavedChanges &&
-                        !window.confirm('You have unsaved changes. Restoring will discard them.')
-                      )
-                        return
-                      onRestore(v)
-                    }}
-                  >
-                    Restore
+                <div className="flex shrink-0 items-center gap-2">
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link
+                      to={v.isCurrent ? '/resume/preview' : `/resume/preview?version=${v.id}`}
+                      aria-label={`View version from ${new Date(v.createdAt).toLocaleString()}`}
+                    >
+                      View
+                    </Link>
                   </Button>
-                )}
+                  {!v.isCurrent && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={restoring}
+                      onClick={() => {
+                        if (
+                          hasUnsavedChanges &&
+                          !window.confirm('You have unsaved changes. Restoring will discard them.')
+                        )
+                          return
+                        onRestore(v)
+                      }}
+                    >
+                      Restore
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

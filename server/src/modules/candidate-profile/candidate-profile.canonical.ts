@@ -1,9 +1,13 @@
-import { hashContent, uniqueSorted } from '../../lib/content-hash'
+import { uniqueSorted } from '../../lib/content-hash'
 import type { ProfileInput } from './candidate-profile.schema'
 
 /**
  * Reduces equivalent profiles to one shape so they hash the same: duplicates collapse (strongest
- * skill wins, like the engine), lists are sorted, empty preferences are dropped.
+ * skill wins, like the engine), set-like lists are sorted, empty preferences are dropped.
+ *
+ * Roles and education are NOT sorted: their order is what the candidate arranged and what the
+ * resume shows, so it is part of the saved content. Rearranging them makes a new version (the
+ * score never changes, because the engine ignores order).
  */
 export function canonicalizeProfile(input: ProfileInput): ProfileInput {
   const skills = new Map<string, ProfileInput['skills'][number]>()
@@ -21,18 +25,15 @@ export function canonicalizeProfile(input: ProfileInput): ProfileInput {
     headline: input.headline,
     summary: input.summary,
     skills: [...skills.values()].sort((a, b) => (a.termId < b.termId ? -1 : 1)),
-    // Full-content tiebreak: two roles with the same title must still sort the same way every time.
-    roles: input.roles
-      .map((r) => ({
-        title: r.title,
-        years: r.years,
-        ...(r.domainId && { domainId: r.domainId }),
-        company: r.company,
-        period: r.period,
-        description: r.description,
-      }))
-      .sort((a, b) => a.title.localeCompare(b.title) || (hashContent(a) < hashContent(b) ? -1 : 1)),
-    education: [...input.education].sort((a, b) => (hashContent(a) < hashContent(b) ? -1 : 1)),
+    roles: input.roles.map((r) => ({
+      title: r.title,
+      years: r.years,
+      ...(r.domainId && { domainId: r.domainId }),
+      company: r.company,
+      period: r.period,
+      description: r.description,
+    })),
+    education: [...input.education],
     leadershipLevel: input.leadershipLevel,
     certIds: uniqueSorted(input.certIds),
     unmapped: uniqueSorted(input.unmapped),

@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { Trash2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronUp, Eye, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
+import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { FieldError } from '@/components/field-error'
@@ -27,7 +28,7 @@ import {
   toPayload,
   type ProfileFormValues,
 } from '@/features/profile/profile.schema'
-import { useProfile, useRestoreVersion, useSaveProfile } from '@/features/profile/use-profile'
+import { useProfile, useRestoreVersion, useSaveProfile, useVersions } from '@/features/profile/use-profile'
 import { VersionHistory } from '@/features/profile/version-history'
 import { getApiError } from '@/lib/api'
 
@@ -44,12 +45,18 @@ export default function Resume() {
 
 function ResumeBuilder() {
   const profile = useProfile()
+  const versions = useVersions()
   const accountEmail = useAuthStore((s) => s.user?.email ?? '')
   const save = useSaveProfile()
   const restore = useRestoreVersion()
-  // Names of terms picked this session; the rest come with the loaded profile.
+  const [params, setParams] = useSearchParams()
+  // `?from=<version id>` starts an edit from an older version (a copy: nothing changes until Save).
+  const fromId = params.get('from')
+  const copySource = fromId ? versions.data?.versions.find((v) => v.id === fromId) : undefined
+  const appliedFrom = useRef<string | null>(null)
+  // Names of terms picked this session; the rest come with the loaded profile (and the version history).
   const [picked, setPicked] = useState<Record<string, string>>({})
-  const names = { ...profile.data?.termNames, ...picked }
+  const names = { ...profile.data?.termNames, ...(fromId ? versions.data?.termNames : undefined), ...picked }
 
   const domains = useQuery({
     queryKey: ['catalog', 'domain', 'all'],
@@ -74,10 +81,28 @@ function ResumeBuilder() {
   const education = useFieldArray({ control, name: 'education' })
   const certIds = useWatch({ control, name: 'certIds' })
 
-  // Load (or reload after a save/restore) the current version into the form.
+  // Load the current version into the form, and reload it after a save/restore. When editing a copy
+  // of an older version, load that once and then leave the form alone, so a background refetch
+  // can never overwrite what is being edited.
   useEffect(() => {
-    if (profile.data) reset(toForm(profile.data.content, profile.data.contact))
-  }, [profile.data, reset])
+    if (!profile.data) return
+    if (fromId) {
+      if (versions.isPending) return
+      if (appliedFrom.current !== fromId) {
+        appliedFrom.current = fromId
+        const source = versions.data?.versions.find((v) => v.id === fromId)
+        if (source) {
+          reset(toForm(source.content, profile.data.contact))
+        } else {
+          toast.error('That version was not found', { description: 'Showing your current resume instead.' })
+          setParams({}, { replace: true })
+        }
+      }
+      return
+    }
+    appliedFrom.current = null
+    reset(toForm(profile.data.content, profile.data.contact))
+  }, [profile.data, fromId, versions.data, versions.isPending, reset, setParams])
 
   const remember = (id: string, name: string) => setPicked((n) => ({ ...n, [id]: name }))
 
@@ -86,6 +111,8 @@ function ResumeBuilder() {
       onSuccess: () => {
         // Clears "unsaved" even when the content matched an existing version (no refetch change).
         reset(values)
+        // The copy is now the current resume, so the form follows the server again.
+        if (fromId) setParams({}, { replace: true })
         toast.success('Resume saved')
       },
       onError: (err) => toast.error('Could not save', { description: getApiError(err).message }),
@@ -109,12 +136,33 @@ function ResumeBuilder() {
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Your resume</h1>
-          <p className="text-sm text-muted-foreground">
-            Matching scores are calculated from exactly what you enter here.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Your resume</h1>
+            <p className="text-sm text-muted-foreground">
+              Matching scores are calculated from exactly what you enter here.
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <Button variant="outline" asChild>
+              <Link to="/resume/preview">
+                <Eye className="size-4" />
+                Preview &amp; download
+              </Link>
+            </Button>
+            {isDirty && <p className="text-xs text-muted-foreground">The preview shows your last saved resume.</p>}
+          </div>
         </div>
+
+        {fromId && copySource && (
+          <p role="status" className="rounded-lg border p-3 text-sm">
+            You are editing a copy of the version saved on {new Date(copySource.createdAt).toLocaleString()}.
+            Saving creates a new version; your current resume stays as it is until then.{' '}
+            <button type="button" className="underline" onClick={() => setParams({}, { replace: true })}>
+              Discard this copy
+            </button>
+          </p>
+        )}
 
         <Card>
           <CardHeader>
@@ -306,7 +354,8 @@ function ResumeBuilder() {
             <CardTitle>Experience</CardTitle>
             <CardDescription>
               The years you enter drive your score: total experience is their sum. Company, dates and
-              the description are shown to employers but are not scored.
+              the description are shown to employers but are not scored. Entries appear on your resume in
+              this order: use the arrows to rearrange them.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -341,15 +390,37 @@ function ResumeBuilder() {
                     />
                     <FieldError message={errors.roles?.[i]?.years?.message} />
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove role"
-                    onClick={() => roles.remove(i)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <div className="flex">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Move role up"
+                      disabled={i === 0}
+                      onClick={() => roles.move(i, i - 1)}
+                    >
+                      <ChevronUp className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Move role down"
+                      disabled={i === roles.fields.length - 1}
+                      onClick={() => roles.move(i, i + 1)}
+                    >
+                      <ChevronDown className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove role"
+                      onClick={() => roles.remove(i)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div>
@@ -397,7 +468,7 @@ function ResumeBuilder() {
             <CardTitle>Education</CardTitle>
             <CardDescription>
               Your highest degree counts toward your score when a job asks for one. Field, institution
-              and dates are shown to employers.
+              and dates are shown to employers. Use the arrows to set the order they appear in.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -421,15 +492,37 @@ function ResumeBuilder() {
                     aria-label="Field of study"
                     {...register(`education.${i}.field`)}
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove education"
-                    onClick={() => education.remove(i)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
+                  <div className="flex">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Move education up"
+                      disabled={i === 0}
+                      onClick={() => education.move(i, i - 1)}
+                    >
+                      <ChevronUp className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Move education down"
+                      disabled={i === education.fields.length - 1}
+                      onClick={() => education.move(i, i + 1)}
+                    >
+                      <ChevronDown className="size-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove education"
+                      onClick={() => education.remove(i)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <Input

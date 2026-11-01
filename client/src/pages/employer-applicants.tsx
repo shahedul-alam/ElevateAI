@@ -10,6 +10,7 @@ import { MatchBreakdown } from '@/features/matching/match-breakdown'
 import type { ApplicationStatus } from '@/features/matching/matching.api'
 import { DEGREE_LABELS, LEADERSHIP_LABELS, LEVEL_LABELS } from '@/features/profile/profile.schema'
 import { getApiError } from '@/lib/api'
+import { safeHref } from '@/lib/safe-href'
 
 export default function EmployerApplicants() {
   return (
@@ -190,16 +191,6 @@ function ApplicantsPage() {
 }
 
 const joinParts = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' · ')
-
-/** The server only stores http(s) links; this is a second check before one becomes an href. */
-function safeHref(url: string) {
-  try {
-    const { protocol } = new URL(url)
-    return protocol === 'http:' || protocol === 'https:' ? url : null
-  } catch {
-    return null
-  }
-}
 
 /** Read-only view of the resume snapshot a candidate applied with. */
 function ResumeView({ resume }: { resume: ApplicantResume }) {

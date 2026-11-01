@@ -16,10 +16,12 @@ function useRefreshProfile() {
   const queryClient = useQueryClient()
   // Prefix match refreshes both the current profile and the version list. Match scores depend on
   // the profile, so they refresh too.
-  return () => {
-    queryClient.invalidateQueries({ queryKey: PROFILE_KEY })
-    queryClient.invalidateQueries({ queryKey: MATCH_KEY })
-  }
+  // Returned so a mutation waits for the refetch: callers can then rely on fresh data.
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: PROFILE_KEY }),
+      queryClient.invalidateQueries({ queryKey: MATCH_KEY }),
+    ])
 }
 
 export function useSaveProfile() {

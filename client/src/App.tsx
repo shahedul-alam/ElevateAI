@@ -13,6 +13,7 @@ import Jobs from '@/pages/jobs'
 import Login from '@/pages/login'
 import Register from '@/pages/register'
 import Resume from '@/pages/resume'
+import ResumePreview from '@/pages/resume-preview'
 
 function App() {
   useSession()
@@ -25,6 +26,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/resume" element={<Resume />} />
+        <Route path="/resume/preview" element={<ResumePreview />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/employer/jobs" element={<EmployerJobs />} />

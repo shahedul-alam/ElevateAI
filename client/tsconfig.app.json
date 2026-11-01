@@ -23,5 +23,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Unit tests run under `bun test`, which this build has no types for.
+  "exclude": ["src/**/*.test.ts"]
 }

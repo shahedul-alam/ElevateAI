@@ -58,7 +58,7 @@ export function profileContent(overrides: Partial<ProfileContent> = {}): Profile
   }
 }
 
-type Version = { id: string; isCurrent: boolean; content: ProfileContent }
+type Version = { id: string; createdAt: string; isCurrent: boolean; content: ProfileContent }
 
 export async function saveProfileApi(request: APIRequestContext, content: ProfileContent) {
   const res = await request.put('/api/candidate/profile', { data: content })

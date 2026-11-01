@@ -21,11 +21,10 @@ const base = {
 
 const hashOf = (raw: unknown) => hashContent(canonicalizeProfile(parse(raw)))
 
-test('ordering and duplicates do not change the hash', () => {
+test('ordering of skills and certifications, and duplicates, do not change the hash', () => {
   const shuffled = {
     ...base,
     skills: [...base.skills, { termId: 'skill:react', level: 1, years: 0 }].reverse(),
-    roles: [...base.roles].reverse(),
     certIds: [...base.certIds, 'certification:pmp'].reverse(),
   }
   expect(hashOf(shuffled)).toBe(hashOf(base))
@@ -46,16 +45,36 @@ test('rejects ids of the wrong kind', () => {
   expect(() => parse({ ...base, certIds: ['skill:react'] })).toThrow()
 })
 
-test('roles with the same title keep a stable order whatever order they arrive in', () => {
+test('the order of roles is part of the content: same order hashes equal, a different order does not', () => {
   const a = { title: 'Engineer', years: 2, company: 'Acme', description: 'Built APIs' }
   const b = { title: 'Engineer', years: 2, company: 'Beta', description: 'Ran infra' }
-  expect(hashOf({ ...base, roles: [a, b] })).toBe(hashOf({ ...base, roles: [b, a] }))
+  expect(hashOf({ ...base, roles: [a, b] })).toBe(hashOf({ ...base, roles: [a, b] }))
+  expect(hashOf({ ...base, roles: [a, b] })).not.toBe(hashOf({ ...base, roles: [b, a] }))
 })
 
-test('education order does not change the hash', () => {
+test('canonical roles and education keep the order they were given', () => {
+  const roles = [
+    { title: 'Zebra keeper', years: 1 },
+    { title: 'Accountant', years: 2 },
+  ]
+  const education = [
+    { degreeLevel: 3, field: 'AI' },
+    { degreeLevel: 2, field: 'CS' },
+  ]
+  const canon = canonicalizeProfile(parse({ ...base, roles, education }))
+  expect(canon.roles.map((r) => r.title)).toEqual(['Zebra keeper', 'Accountant'])
+  expect(canon.education.map((e) => e.field)).toEqual(['AI', 'CS'])
+})
+
+test('the order of education entries is part of the content, but never of the score', () => {
   const x = { degreeLevel: 2, field: 'CS', institution: 'State U' }
   const y = { degreeLevel: 3, field: 'AI', institution: 'Tech U' }
-  expect(hashOf({ ...base, education: [x, y] })).toBe(hashOf({ ...base, education: [y, x] }))
+  expect(hashOf({ ...base, education: [x, y] })).not.toBe(hashOf({ ...base, education: [y, x] }))
+
+  const job = { skills: [], minYears: 0, minDomainYears: 0, minDegreeLevel: 3, leadershipLevel: 0, certIds: [] }
+  const score = (education: unknown[]) =>
+    matchEngine(canonicalizeProfile(parse({ ...base, education })), job)
+  expect(score([x, y])).toEqual(score([y, x]))
 })
 
 test('display-only text makes a new version but never changes the score', () => {

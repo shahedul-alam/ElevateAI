@@ -221,7 +221,15 @@ test.describe('versioning of display-only fields', () => {
     expect(await listVersionsApi(request)).toHaveLength(3)
   })
 
-  test('reuses the version when education entries are re-saved in a different order', async ({ request }) => {
+  test('creates a new version when education entries are reordered and reuses it for the same order', async ({
+    request,
+    playwright,
+    baseURL,
+  }) => {
+    const employer = await newSignedInContext(playwright, baseURL)
+    const job = await publishReactJob(employer, 4)
+    await employer.dispose()
+
     await registerUser(request)
     const entries = [
       { degreeLevel: 2, field: 'Computer Science', institution: 'State University', period: '2015 - 2019' },
@@ -229,11 +237,23 @@ test.describe('versioning of display-only fields', () => {
       { degreeLevel: 1, field: 'Math', institution: 'Community College', period: '2013 - 2015' },
     ]
     const a = await saveProfileApi(request, profileContent({ education: entries }))
+    const gapA = await getGap(request, job.id)
     const b = await saveProfileApi(request, profileContent({ education: [...entries].reverse() }))
-    const c = await saveProfileApi(request, profileContent({ education: [entries[1]!, entries[2]!, entries[0]!] }))
-    expect(b.id).toBe(a.id)
-    expect(c.id).toBe(a.id)
-    expect(await listVersionsApi(request)).toHaveLength(1)
+    expect(b.id).not.toBe(a.id)
+    expect(await listVersionsApi(request)).toHaveLength(2)
+
+    // The engine ignores order, so the score is unchanged.
+    const gapB = await getGap(request, job.id)
+    expect(gapB.profileVersionId).toBe(b.id)
+    expect(gapB.score).toBe(gapA.score)
+    expect(gapB.dimensions).toEqual(gapA.dimensions)
+
+    // Same order again reuses the version; going back to the first order reuses the first row.
+    const again = await saveProfileApi(request, profileContent({ education: [...entries].reverse() }))
+    expect(again.id).toBe(b.id)
+    const back = await saveProfileApi(request, profileContent({ education: entries }))
+    expect(back.id).toBe(a.id)
+    expect(await listVersionsApi(request)).toHaveLength(2)
   })
 
   test('creates a new version when education content changes', async ({ request }) => {
@@ -243,14 +263,21 @@ test.describe('versioning of display-only fields', () => {
     expect(b.id).not.toBe(a.id)
   })
 
-  test('produces one version for same-titled roles saved in either order', async ({ request }) => {
+  test('keeps same-titled roles in the order given, one version per order', async ({ request }) => {
     await registerUser(request)
     const one = { title: 'Engineer', years: 2, description: 'Built the billing system' }
     const two = { title: 'Engineer', years: 2, description: 'Ran the on-call rotation' }
     const a = await saveProfileApi(request, profileContent({ roles: [one, two] }))
     const b = await saveProfileApi(request, profileContent({ roles: [two, one] }))
-    expect(b.id).toBe(a.id)
-    expect(await listVersionsApi(request)).toHaveLength(1)
+    expect(b.id).not.toBe(a.id)
+    expect(b.content.roles.map((r) => r.description)).toEqual([two.description, one.description])
+    expect(await listVersionsApi(request)).toHaveLength(2)
+
+    const sameOrder = await saveProfileApi(request, profileContent({ roles: [two, one] }))
+    expect(sameOrder.id).toBe(b.id)
+    const back = await saveProfileApi(request, profileContent({ roles: [one, two] }))
+    expect(back.id).toBe(a.id)
+    expect(await listVersionsApi(request)).toHaveLength(2)
   })
 })
 
