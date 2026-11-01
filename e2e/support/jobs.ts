@@ -8,6 +8,7 @@ export type JobContent = {
   minYears: number
   domainId?: string
   minDomainYears: number
+  minDegreeLevel?: number
   leadershipLevel: number
   certIds: string[]
   location?: string

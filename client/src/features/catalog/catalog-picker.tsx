@@ -14,6 +14,8 @@ type Props = {
   id?: string
 }
 
+// The list is absolutely positioned inside the picker, so an ancestor with overflow-hidden clips it.
+// Card is overflow-hidden by default: give any Card that holds a picker className="overflow-visible".
 export function CatalogPicker({ kind, placeholder, excludeIds, onSelect, onFreeText, id }: Props) {
   const [text, setText] = useState('')
   const [debounced, setDebounced] = useState('')

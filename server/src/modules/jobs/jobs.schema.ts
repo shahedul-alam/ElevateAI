@@ -20,6 +20,8 @@ export const jobContentSchema = z
     minYears: years,
     domainId: termId('domain').optional(),
     minDomainYears: years,
+    // 0 not required, 1 diploma/associate, 2 bachelor, 3 master, 4 doctorate.
+    minDegreeLevel: z.number().int().min(0).max(4).default(0),
     leadershipLevel: z.number().int().min(0).max(3),
     certIds: z.array(termId('certification')).max(30),
     location: z.string().trim().max(80).optional(),
@@ -33,6 +35,9 @@ export const jobContentSchema = z
   })
 
 export type JobInput = z.infer<typeof jobContentSchema>
+
+/** Stored versions predate later fields, so reading re-applies the schema defaults. */
+export const parseStoredJob = (content: unknown): JobInput => jobContentSchema.parse(content)
 
 export const jobIdParamSchema = z.object({ id: z.uuid() })
 

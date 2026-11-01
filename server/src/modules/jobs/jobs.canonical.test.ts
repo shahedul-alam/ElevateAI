@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { hashContent } from '../../lib/content-hash'
 import { canonicalizeJob, hasScoredRequirement } from './jobs.canonical'
-import { jobContentSchema } from './jobs.schema'
+import { jobContentSchema, parseStoredJob } from './jobs.schema'
 
 const parse = (raw: unknown) => jobContentSchema.parse(raw)
 
@@ -14,6 +14,7 @@ const base = {
   ],
   minYears: 3,
   minDomainYears: 0,
+  minDegreeLevel: 0,
   leadershipLevel: 0,
   certIds: ['certification:pmp', 'certification:cka'],
 }
@@ -62,4 +63,19 @@ test('a post with no scored requirement cannot be published', () => {
   expect(hasScoredRequirement(empty)).toBe(false)
   expect(hasScoredRequirement(parse(base))).toBe(true)
   expect(hasScoredRequirement(parse({ ...empty, leadershipLevel: 1 }))).toBe(true)
+})
+
+test('a degree requirement counts as a scored requirement', () => {
+  const degreeOnly = parse({ ...base, skills: [], minYears: 0, certIds: [], minDegreeLevel: 2 })
+  expect(hasScoredRequirement(degreeOnly)).toBe(true)
+  expect(hashOf({ ...base, minDegreeLevel: 2 })).not.toBe(hashOf(base))
+})
+
+test('rejects a degree level above doctorate', () => {
+  expect(() => parse({ ...base, minDegreeLevel: 5 })).toThrow()
+})
+
+test('older stored jobs without a degree requirement read as not required', () => {
+  const { minDegreeLevel: _omitted, ...old } = { ...base, minDegreeLevel: 0 }
+  expect(parseStoredJob(old).minDegreeLevel).toBe(0)
 })

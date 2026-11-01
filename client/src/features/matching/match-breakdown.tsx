@@ -16,6 +16,7 @@ export const DIMENSION_LABEL: Record<DimensionKey, string> = {
   skills: 'Skills',
   experience: 'Experience',
   domain: 'Industry',
+  education: 'Education',
   leadership: 'Leadership',
   certifications: 'Certifications',
 }

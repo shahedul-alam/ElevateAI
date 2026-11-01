@@ -103,6 +103,13 @@ export function matchEngine(
     domain = { bp, applicable: true }
   }
 
+  // Highest degree held; the job's minimum is the bar. Unspecified (0) skips the dimension.
+  const highestDegree = profile.education.reduce((max, ed) => Math.max(max, ed.degreeLevel), 0)
+  const education: DimensionBp =
+    job.minDegreeLevel > 0
+      ? { bp: ratioBp(highestDegree, job.minDegreeLevel), applicable: true }
+      : { bp: 0, applicable: false }
+
   const leadership: DimensionBp =
     job.leadershipLevel > 0
       ? { bp: ratioBp(profile.leadershipLevel, job.leadershipLevel), applicable: true }
@@ -123,6 +130,7 @@ export function matchEngine(
     skills,
     experience,
     domain,
+    education,
     leadership,
     certifications,
   }

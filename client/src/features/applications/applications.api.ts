@@ -12,6 +12,24 @@ export type MyApplication = {
   createdAt: string
 }
 
+/** The resume the candidate applied with, as the employer sees it (no personal preferences). */
+export type ApplicantResume = {
+  headline: string
+  summary: string
+  leadershipLevel: number
+  skills: { name: string; level: number; years: number }[]
+  roles: {
+    title: string
+    company: string
+    period: string
+    years: number
+    domain?: string
+    description: string
+  }[]
+  education: { degreeLevel: number; field: string; institution: string; period: string }[]
+  certifications: string[]
+}
+
 export type Applicant = {
   id: string
   candidateName: string
@@ -23,6 +41,7 @@ export type Applicant = {
   engineVersion: string
   scoredAgainstOlderVersion: boolean
   createdAt: string
+  resume: ApplicantResume
   breakdown: Breakdown
 }
 

@@ -22,6 +22,7 @@ export function canonicalizeJob(input: JobInput): JobInput {
     minYears: input.minYears,
     ...(input.domainId && { domainId: input.domainId }),
     minDomainYears: input.minDomainYears,
+    minDegreeLevel: input.minDegreeLevel,
     leadershipLevel: input.leadershipLevel,
     certIds: uniqueSorted(input.certIds),
     ...(input.location && { location: input.location }),
@@ -36,5 +37,6 @@ export const hasScoredRequirement = (j: JobInput) =>
   j.skills.length > 0 ||
   j.minYears > 0 ||
   !!j.domainId ||
+  j.minDegreeLevel > 0 ||
   j.leadershipLevel > 0 ||
   j.certIds.length > 0

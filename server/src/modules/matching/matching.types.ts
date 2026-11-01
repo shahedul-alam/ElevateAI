@@ -1,4 +1,10 @@
-export type DimensionKey = 'skills' | 'experience' | 'domain' | 'leadership' | 'certifications'
+export type DimensionKey =
+  | 'skills'
+  | 'experience'
+  | 'domain'
+  | 'education'
+  | 'leadership'
+  | 'certifications'
 
 export type WorkMode = 'onsite' | 'hybrid' | 'remote'
 
@@ -14,9 +20,15 @@ export type ProfileRole = {
   domainId?: string
 }
 
+// 0 none, 1 diploma/associate, 2 bachelor, 3 master, 4 doctorate.
+export type ProfileEducation = {
+  degreeLevel: number
+}
+
 export type ProfileContent = {
   skills: ProfileSkill[]
   roles: ProfileRole[]
+  education: ProfileEducation[]
   leadershipLevel: number
   certIds: string[]
   preferences?: {
@@ -38,6 +50,7 @@ export type JobContent = {
   minYears: number
   domainId?: string
   minDomainYears: number
+  minDegreeLevel: number
   leadershipLevel: number
   certIds: string[]
   location?: string

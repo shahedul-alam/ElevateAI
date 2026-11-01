@@ -82,13 +82,15 @@ test.describe('gap score correctness', () => {
     expect(gap.application).toBeNull()
     expect(Object.fromEntries(gap.dimensions.map((d) => [d.key, d.score]))).toEqual(DIMENSIONS_A)
     expect(Object.fromEntries(gap.dimensions.map((d) => [d.key, d.weight]))).toEqual({
-      skills: 40,
+      skills: 35,
       experience: 20,
       domain: 15,
+      education: 10,
       leadership: 10,
-      certifications: 15,
+      certifications: 10,
     })
-    expect(gap.dimensions.every((d) => d.applicable)).toBe(true)
+    // SCORED_JOB has no degree requirement, so education is the only skipped dimension.
+    expect(gap.dimensions.filter((d) => !d.applicable).map((d) => d.key)).toEqual(['education'])
 
     expect(gap.missing.skills).toHaveLength(2)
     expect(gap.missing.skills).toContainEqual({ termId: 'skill:react', name: 'React', required: true })

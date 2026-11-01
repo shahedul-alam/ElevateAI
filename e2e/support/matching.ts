@@ -29,6 +29,17 @@ export type Applicant = {
   engineVersion: string
   scoredAgainstOlderVersion: boolean
   breakdown: Gap['missing'] & { dimensions: Gap['dimensions'] }
+  resume: ApplicantResume
+}
+
+export type ApplicantResume = {
+  headline: string
+  summary: string
+  leadershipLevel: number
+  skills: { name: string; level: number; years: number }[]
+  roles: { title: string; company: string; period: string; years: number; domain?: string; description: string }[]
+  education: { degreeLevel: number; field: string; institution: string; period: string }[]
+  certifications: string[]
 }
 
 /** A candidate in its own API context (own cookie jar), optionally with a saved resume. */
@@ -82,7 +93,9 @@ export async function recommended(request: APIRequestContext, limit = 50) {
 //     => (1*5000 + 2*7500) / 3 = 6666bp -> 67
 //   experience: 3y of 5y = 60; domain: fintech time with no minimum = 100
 //   leadership: 1 of 2 = 50; certifications: 1 of 2 = 50
-//   overall = (40*6666 + 20*6000 + 15*10000 + 10*5000 + 15*5000) / 100 = 6616bp -> 66
+//   education is not required by SCORED_JOB, so it is skipped: weights 35+20+15+10+10 = 90
+//   overall = (35*6666 + 20*6000 + 15*10000 + 10*5000 + 10*5000) / 90
+//           = (233310 + 120000 + 150000 + 50000 + 50000) / 90 = 603310 / 90 = 6703bp -> 67
 export const SCORED_JOB: Partial<JobContent> = {
   skills: [
     { termId: 'skill:react', required: true, minLevel: 4 },
@@ -104,11 +117,12 @@ export const PROFILE_A = profileContent({
   leadershipLevel: 1,
   certIds: ['certification:aws-developer'],
 })
-export const SCORE_A = 66
+export const SCORE_A = 67
 export const DIMENSIONS_A: Record<string, number> = {
   skills: 67,
   experience: 60,
   domain: 100,
+  education: 0, // not applicable for SCORED_JOB
   leadership: 50,
   certifications: 50,
 }

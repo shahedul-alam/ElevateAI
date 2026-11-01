@@ -23,6 +23,7 @@ export const jobFormSchema = z
     minYears: years,
     domainId: z.string(),
     minDomainYears: years,
+    minDegreeLevel: z.number().int().min(0).max(4),
     leadershipLevel: z.number().int().min(0).max(3),
     certIds: z.array(z.string()).max(30),
     location: z.string().trim().max(80),
@@ -45,6 +46,7 @@ export type JobContent = {
   minYears: number
   domainId?: string
   minDomainYears: number
+  minDegreeLevel: number
   leadershipLevel: number
   certIds: string[]
   location?: string
@@ -60,6 +62,7 @@ export const emptyJobForm: JobFormValues = {
   minYears: 0,
   domainId: '',
   minDomainYears: 0,
+  minDegreeLevel: 0,
   leadershipLevel: 0,
   certIds: [],
   location: '',
@@ -82,6 +85,7 @@ export const toJobForm = (c: JobContent): JobFormValues => ({
   minYears: c.minYears,
   domainId: c.domainId ?? '',
   minDomainYears: c.minDomainYears,
+  minDegreeLevel: c.minDegreeLevel,
   leadershipLevel: c.leadershipLevel,
   certIds: c.certIds,
   location: c.location ?? '',
@@ -102,6 +106,7 @@ export const toJobPayload = (v: JobFormValues): JobContent => ({
   minYears: v.minYears,
   ...(v.domainId && { domainId: v.domainId }),
   minDomainYears: v.minDomainYears,
+  minDegreeLevel: v.minDegreeLevel,
   leadershipLevel: v.leadershipLevel,
   certIds: v.certIds,
   ...(v.location && { location: v.location }),

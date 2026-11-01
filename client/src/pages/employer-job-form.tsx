@@ -24,6 +24,7 @@ import {
 } from '@/features/jobs/jobs.schema'
 import { useCreateJob, useMyJob, useUpdateJob } from '@/features/jobs/use-jobs'
 import {
+  DEGREE_LABELS,
   LEADERSHIP_LABELS,
   LEVEL_LABELS,
   WORK_MODES,
@@ -186,7 +187,7 @@ function JobFormPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader>
               <CardTitle>Skills</CardTitle>
               <CardDescription>
@@ -256,7 +257,7 @@ function JobFormPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="overflow-visible">
             <CardHeader>
               <CardTitle>Experience and credentials</CardTitle>
               <CardDescription>Leave a field at 0 or empty to leave it out of the score.</CardDescription>
@@ -280,6 +281,16 @@ function JobFormPage() {
                   {LEADERSHIP_LABELS.map((label, idx) => (
                     <option key={label} value={idx}>
                       {label}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="degree">Minimum education</Label>
+                <NativeSelect id="degree" {...register('minDegreeLevel', { valueAsNumber: true })}>
+                  {DEGREE_LABELS.map((label, idx) => (
+                    <option key={label} value={idx}>
+                      {idx === 0 ? 'Not required' : label}
                     </option>
                   ))}
                 </NativeSelect>

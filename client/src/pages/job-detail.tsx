@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatSalary } from '@/features/jobs/format'
 import { MatchPanel } from '@/features/matching/match-panel'
 import { usePublicJob } from '@/features/jobs/use-jobs'
-import { LEADERSHIP_LABELS, LEVEL_LABELS } from '@/features/profile/profile.schema'
+import { DEGREE_LABELS, LEADERSHIP_LABELS, LEVEL_LABELS } from '@/features/profile/profile.schema'
 
 export default function JobDetail() {
   const { id = '' } = useParams()
@@ -90,6 +90,7 @@ export default function JobDetail() {
                 {c.minDomainYears > 0 ? ` · ${c.minDomainYears}+ years` : ''}
               </li>
             )}
+            {c.minDegreeLevel > 0 && <li>Education: {DEGREE_LABELS[c.minDegreeLevel]} or above</li>}
             {c.leadershipLevel > 0 && <li>Leadership: {LEADERSHIP_LABELS[c.leadershipLevel]} or above</li>}
             {c.certIds.length > 0 && <li>Certifications: {c.certIds.map(name).join(', ')}</li>}
           </ul>

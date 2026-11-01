@@ -1,8 +1,8 @@
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import { termNamesFor } from '../catalog/catalog.service'
-import type { JobInput } from '../jobs/jobs.schema'
-import type { ProfileInput } from '../candidate-profile/candidate-profile.schema'
+import { parseStoredProfile, type ProfileInput } from '../candidate-profile/candidate-profile.schema'
+import { parseStoredJob, type JobInput } from '../jobs/jobs.schema'
 import { checkEligibility, matchEngine } from './matching.engine'
 import type { EligibilityResult, MatchResult } from './matching.types'
 
@@ -25,7 +25,7 @@ export async function loadCurrentProfile(userId: string) {
   if (!profile?.currentVersion) {
     throw new HttpError(409, 'Build your resume to see how you match')
   }
-  return { versionId: profile.currentVersion.id, content: profile.currentVersion.content as ProfileInput }
+  return { versionId: profile.currentVersion.id, content: parseStoredProfile(profile.currentVersion.content) }
 }
 
 /** Breakdown as stored on an application: ids only, so it stays valid whatever the catalog does later. */
@@ -60,7 +60,7 @@ export async function getGap(userId: string, jobId: string) {
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')
   const profile = await loadCurrentProfile(userId)
 
-  const match = scoreMatch(profile.content, job.currentVersion.content as JobInput)
+  const match = scoreMatch(profile.content, parseStoredJob(job.currentVersion.content))
   const application = await prisma.application.findUnique({
     where: { jobId_candidateId: { jobId, candidateId: userId } },
     select: { id: true, status: true, matchScore: true, createdAt: true },
@@ -88,7 +88,7 @@ export async function recommendJobs(userId: string, limit: number) {
   })
 
   const scored = jobs
-    .flatMap((j) => (j.currentVersion ? [{ job: j, content: j.currentVersion.content as JobInput }] : []))
+    .flatMap((j) => (j.currentVersion ? [{ job: j, content: parseStoredJob(j.currentVersion.content) }] : []))
     .map(({ job, content }) => ({ job, content, match: scoreMatch(profile.content, content) }))
     .sort((a, b) => b.match.score - a.match.score || (a.job.id < b.job.id ? -1 : 1))
     .slice(0, limit)

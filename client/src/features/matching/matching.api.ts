@@ -1,7 +1,13 @@
 import { api } from '@/lib/api'
 import type { WorkMode } from '@/features/profile/profile.schema'
 
-export type DimensionKey = 'skills' | 'experience' | 'domain' | 'leadership' | 'certifications'
+export type DimensionKey =
+  | 'skills'
+  | 'experience'
+  | 'domain'
+  | 'education'
+  | 'leadership'
+  | 'certifications'
 export type EligibilityStatus = 'ok' | 'mismatch' | 'unknown'
 export type ApplicationStatus = 'applied' | 'under_review' | 'rejected' | 'hired'
 

@@ -4,7 +4,7 @@ import { HttpError } from '../../middleware/errors'
 import type { Prisma } from '../../../generated/prisma/client'
 import { assertApprovedTerms, termNamesFor } from '../catalog/catalog.service'
 import { canonicalizeJob, hasScoredRequirement } from './jobs.canonical'
-import type { JobInput, JobListQuery } from './jobs.schema'
+import { parseStoredJob, type JobInput, type JobListQuery } from './jobs.schema'
 
 type JobRow = {
   id: string
@@ -15,7 +15,7 @@ type JobRow = {
 }
 type VersionRow = { id: string; content: unknown }
 
-const contentOf = (v: VersionRow) => v.content as JobInput
+const contentOf = (v: VersionRow) => parseStoredJob(v.content)
 
 const jobTermIds = (c: JobInput) => [
   ...c.skills.map((s) => s.termId),

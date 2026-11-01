@@ -4,8 +4,17 @@ export type ProfileSkill = { termId: string; level: number; years: number }
 
 export type ProfileContent = {
   headline: string
+  summary?: string
   skills: ProfileSkill[]
-  roles: { title: string; years: number; domainId?: string }[]
+  roles: {
+    title: string
+    years: number
+    domainId?: string
+    company?: string
+    period?: string
+    description?: string
+  }[]
+  education?: { degreeLevel: number; field?: string; institution?: string; period?: string }[]
   leadershipLevel: number
   certIds: string[]
   unmapped: string[]

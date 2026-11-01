@@ -254,6 +254,7 @@ test.describe('applicants', () => {
       ['skills', 67],
       ['experience', 60],
       ['domain', 100],
+      ['education', 0],
       ['leadership', 50],
       ['certifications', 50],
     ])

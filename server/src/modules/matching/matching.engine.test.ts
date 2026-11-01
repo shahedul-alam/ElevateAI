@@ -10,6 +10,7 @@ const job: JobContent = {
   minYears: 5,
   domainId: 'fintech',
   minDomainYears: 2,
+  minDegreeLevel: 0,
   leadershipLevel: 1,
   certIds: ['aws'],
 }
@@ -23,6 +24,7 @@ const candidate: ProfileContent = {
     { title: 'Engineer', years: 3, domainId: 'fintech' },
     { title: 'Intern', years: 1 },
   ],
+  education: [],
   leadershipLevel: 0,
   certIds: [],
 }
@@ -33,14 +35,16 @@ const dim = (r: ReturnType<typeof matchEngine>, key: string) =>
 describe('matchEngine golden values', () => {
   // skills: ts 2/4 = 0.5 (w2), react 0.7*1 + 0.3*0.5 = 0.85 (w1) -> (1.0 + 0.85) / 3 = 61.66% -> 62
   // experience 4/5 = 80, domain 3/2 -> 100, leadership 0/1 = 0, certs 0/1 = 0
-  // overall = (40*6166 + 20*8000 + 15*10000) / 100 = 5566 bp -> 56
+  // education is not specified, so it is skipped and the other weights (35+20+15+10+10 = 90) renormalise
+  // overall = (35*6166 + 20*8000 + 15*10000) / 90 = 5842 bp -> 58
   test('partial match', () => {
     const r = matchEngine(candidate, job)
-    expect(r.score).toBe(56)
+    expect(r.score).toBe(58)
     expect(r.engineVersion).toBe('v1')
     expect(dim(r, 'skills').score).toBe(62)
     expect(dim(r, 'experience').score).toBe(80)
     expect(dim(r, 'domain').score).toBe(100)
+    expect(dim(r, 'education').applicable).toBe(false)
     expect(dim(r, 'leadership').score).toBe(0)
     expect(dim(r, 'certifications').score).toBe(0)
     expect(r.missing.skills).toEqual([
@@ -57,6 +61,7 @@ describe('matchEngine golden values', () => {
         { termId: 'react', level: 5, years: 4 },
       ],
       roles: [{ title: 'Lead', years: 8, domainId: 'fintech' }],
+      education: [{ degreeLevel: 3 }],
       leadershipLevel: 2,
       certIds: ['aws', 'gcp'],
     }
@@ -66,7 +71,7 @@ describe('matchEngine golden values', () => {
   })
 
   test('empty candidate scores 0', () => {
-    const empty: ProfileContent = { skills: [], roles: [], leadershipLevel: 0, certIds: [] }
+    const empty: ProfileContent = { skills: [], roles: [], education: [], leadershipLevel: 0, certIds: [] }
     expect(matchEngine(empty, job).score).toBe(0)
   })
 })
@@ -77,6 +82,7 @@ describe('matchEngine dimension skipping', () => {
       skills: [],
       minYears: 0,
       minDomainYears: 0,
+      minDegreeLevel: 0,
       leadershipLevel: 0,
       certIds: [],
     }
@@ -90,6 +96,7 @@ describe('matchEngine dimension skipping', () => {
       skills: [],
       minYears: 0,
       minDomainYears: 0,
+      minDegreeLevel: 0,
       leadershipLevel: 0,
       certIds: ['aws'],
     }
@@ -102,10 +109,59 @@ describe('matchEngine dimension skipping', () => {
       skills: [],
       minYears: 0,
       minDomainYears: 0,
+      minDegreeLevel: 0,
       leadershipLevel: 2,
       certIds: [],
     }
     expect(matchEngine({ ...candidate, leadershipLevel: 1 }, lead).score).toBe(50)
+  })
+})
+
+describe('matchEngine education', () => {
+  const degreeOnly = (minDegreeLevel: number): JobContent => ({
+    skills: [],
+    minYears: 0,
+    minDomainYears: 0,
+    minDegreeLevel,
+    leadershipLevel: 0,
+    certIds: [],
+  })
+  const withDegree = (...levels: number[]): ProfileContent => ({
+    ...candidate,
+    education: levels.map((degreeLevel) => ({ degreeLevel })),
+  })
+
+  test('meeting or exceeding the required degree scores full', () => {
+    expect(matchEngine(withDegree(2), degreeOnly(2)).score).toBe(100)
+    expect(matchEngine(withDegree(4), degreeOnly(2)).score).toBe(100)
+  })
+
+  test('a lower degree scores proportionally and no degree scores 0', () => {
+    expect(matchEngine(withDegree(1), degreeOnly(2)).score).toBe(50)
+    expect(matchEngine(withDegree(2), degreeOnly(4)).score).toBe(50)
+    expect(matchEngine(withDegree(), degreeOnly(2)).score).toBe(0)
+  })
+
+  test('only the highest degree counts, in any order', () => {
+    expect(matchEngine(withDegree(1, 3, 2), degreeOnly(3))).toEqual(
+      matchEngine(withDegree(3, 2, 1), degreeOnly(3)),
+    )
+    expect(matchEngine(withDegree(1, 3, 2), degreeOnly(3)).score).toBe(100)
+  })
+
+  test('an unspecified requirement never penalises', () => {
+    expect(matchEngine(withDegree(), { ...job, minDegreeLevel: 0 })).toEqual(
+      matchEngine(withDegree(4), { ...job, minDegreeLevel: 0 }),
+    )
+  })
+
+  test('education carries its weight next to other dimensions', () => {
+    // skills 0% (w35) and education 100% (w10): 10 / 45 = 22.2% -> 22
+    const j: JobContent = {
+      ...degreeOnly(2),
+      skills: [{ termId: 'go', required: true, minLevel: 3 }],
+    }
+    expect(matchEngine(withDegree(2), j).score).toBe(22)
   })
 })
 

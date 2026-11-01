@@ -16,6 +16,7 @@ import { searchCatalog } from '@/features/catalog/catalog.api'
 import { CatalogPicker } from '@/features/catalog/catalog-picker'
 import type { ProfileVersion } from '@/features/profile/profile.api'
 import {
+  DEGREE_LABELS,
   LEADERSHIP_LABELS,
   LEVEL_LABELS,
   WORK_MODES,
@@ -28,6 +29,9 @@ import {
 import { useProfile, useRestoreVersion, useSaveProfile } from '@/features/profile/use-profile'
 import { VersionHistory } from '@/features/profile/version-history'
 import { getApiError } from '@/lib/api'
+
+const textareaClass =
+  'min-h-24 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30'
 
 export default function Resume() {
   return (
@@ -65,6 +69,7 @@ function ResumeBuilder() {
   })
   const skills = useFieldArray({ control, name: 'skills' })
   const roles = useFieldArray({ control, name: 'roles' })
+  const education = useFieldArray({ control, name: 'education' })
   const certIds = useWatch({ control, name: 'certIds' })
 
   // Load (or reload after a save/restore) the current version into the form.
@@ -111,16 +116,27 @@ function ResumeBuilder() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Headline</CardTitle>
+            <CardTitle>Headline and summary</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <Label htmlFor="headline">Short professional headline</Label>
             <Input id="headline" placeholder="e.g. Full-stack engineer" {...register('headline')} />
             <FieldError message={errors.headline?.message} />
+            <Label htmlFor="summary" className="mt-2">
+              Summary
+            </Label>
+            <textarea
+              id="summary"
+              className={textareaClass}
+              placeholder="A few lines about your background and what you are looking for"
+              aria-invalid={!!errors.summary}
+              {...register('summary')}
+            />
+            <FieldError message={errors.summary?.message} />
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-visible">
           <CardHeader>
             <CardTitle>Skills</CardTitle>
             <CardDescription>Pick from the list so equivalent names score the same.</CardDescription>
@@ -186,56 +202,87 @@ function ResumeBuilder() {
           <CardHeader>
             <CardTitle>Experience</CardTitle>
             <CardDescription>
-              Enter the years you spent in each role. Total experience is the sum of these.
+              The years you enter drive your score: total experience is their sum. Company, dates and
+              the description are shown to employers but are not scored.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {roles.fields.map((field, i) => (
-              <div key={field.id} className="grid grid-cols-1 items-start gap-2 sm:grid-cols-[1fr_12rem_5rem_auto]">
-                <div>
-                  <Input
-                    placeholder="Role title"
-                    aria-label="Role title"
-                    aria-invalid={!!errors.roles?.[i]?.title}
-                    {...register(`roles.${i}.title`)}
-                  />
-                  <FieldError message={errors.roles?.[i]?.title?.message} />
+              <div key={field.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-[1fr_12rem_5rem_auto]">
+                  <div>
+                    <Input
+                      placeholder="Role title"
+                      aria-label="Role title"
+                      aria-invalid={!!errors.roles?.[i]?.title}
+                      {...register(`roles.${i}.title`)}
+                    />
+                    <FieldError message={errors.roles?.[i]?.title?.message} />
+                  </div>
+                  <NativeSelect aria-label="Role domain" {...register(`roles.${i}.domainId`)}>
+                    <option value="">No domain</option>
+                    {(domains.data ?? []).map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  <div>
+                    <Input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      aria-label="Role years"
+                      aria-invalid={!!errors.roles?.[i]?.years}
+                      {...register(`roles.${i}.years`, { valueAsNumber: true })}
+                    />
+                    <FieldError message={errors.roles?.[i]?.years?.message} />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove role"
+                    onClick={() => roles.remove(i)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
-                <NativeSelect aria-label="Role domain" {...register(`roles.${i}.domainId`)}>
-                  <option value="">No domain</option>
-                  {(domains.data ?? []).map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </NativeSelect>
-                <div>
-                  <Input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    aria-label="Role years"
-                    aria-invalid={!!errors.roles?.[i]?.years}
-                    {...register(`roles.${i}.years`, { valueAsNumber: true })}
-                  />
-                  <FieldError message={errors.roles?.[i]?.years?.message} />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <Input
+                      placeholder="Company"
+                      aria-label="Role company"
+                      {...register(`roles.${i}.company`)}
+                    />
+                    <FieldError message={errors.roles?.[i]?.company?.message} />
+                  </div>
+                  <div>
+                    <Input
+                      placeholder="Dates, e.g. Jan 2021 - Mar 2024"
+                      aria-label="Role period"
+                      {...register(`roles.${i}.period`)}
+                    />
+                    <FieldError message={errors.roles?.[i]?.period?.message} />
+                  </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove role"
-                  onClick={() => roles.remove(i)}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <textarea
+                  className={textareaClass}
+                  placeholder="What you did and achieved in this role"
+                  aria-label="Role description"
+                  aria-invalid={!!errors.roles?.[i]?.description}
+                  {...register(`roles.${i}.description`)}
+                />
+                <FieldError message={errors.roles?.[i]?.description?.message} />
               </div>
             ))}
             <Button
               type="button"
               variant="outline"
               className="self-start"
-              onClick={() => roles.append({ title: '', years: 1, domainId: '' })}
+              onClick={() =>
+                roles.append({ title: '', years: 1, domainId: '', company: '', period: '', description: '' })
+              }
             >
               Add role
             </Button>
@@ -243,6 +290,77 @@ function ResumeBuilder() {
         </Card>
 
         <Card>
+          <CardHeader>
+            <CardTitle>Education</CardTitle>
+            <CardDescription>
+              Your highest degree counts toward your score when a job asks for one. Field, institution
+              and dates are shown to employers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {education.fields.map((field, i) => (
+              <div key={field.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-[12rem_1fr_auto]">
+                  <NativeSelect
+                    aria-label="Degree"
+                    {...register(`education.${i}.degreeLevel`, { valueAsNumber: true })}
+                  >
+                    {DEGREE_LABELS.map((label, level) =>
+                      level === 0 ? null : (
+                        <option key={label} value={level}>
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </NativeSelect>
+                  <Input
+                    placeholder="Field of study"
+                    aria-label="Field of study"
+                    {...register(`education.${i}.field`)}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Remove education"
+                    onClick={() => education.remove(i)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Input
+                    placeholder="Institution"
+                    aria-label="Institution"
+                    {...register(`education.${i}.institution`)}
+                  />
+                  <Input
+                    placeholder="Dates, e.g. 2015 - 2019"
+                    aria-label="Education period"
+                    {...register(`education.${i}.period`)}
+                  />
+                </div>
+                <FieldError
+                  message={
+                    errors.education?.[i]?.field?.message ??
+                    errors.education?.[i]?.institution?.message ??
+                    errors.education?.[i]?.period?.message
+                  }
+                />
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => education.append({ degreeLevel: 2, field: '', institution: '', period: '' })}
+            >
+              Add education
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-visible">
           <CardHeader>
             <CardTitle>Leadership and certifications</CardTitle>
           </CardHeader>

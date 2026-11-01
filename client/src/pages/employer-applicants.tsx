@@ -4,10 +4,11 @@ import { toast } from 'sonner'
 import { RequireRole } from '@/components/require-role'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { STATUS_LABEL } from '@/features/applications/applications.api'
+import { STATUS_LABEL, type ApplicantResume } from '@/features/applications/applications.api'
 import { useApplicants, useChangeApplicationStatus } from '@/features/applications/use-applications'
 import { MatchBreakdown } from '@/features/matching/match-breakdown'
 import type { ApplicationStatus } from '@/features/matching/matching.api'
+import { DEGREE_LABELS, LEADERSHIP_LABELS, LEVEL_LABELS } from '@/features/profile/profile.schema'
 import { getApiError } from '@/lib/api'
 
 export default function EmployerApplicants() {
@@ -109,6 +110,15 @@ function ApplicantsPage() {
 
                   <details>
                     <summary className="cursor-pointer text-sm underline-offset-2 hover:underline">
+                      Resume
+                    </summary>
+                    <div className="pt-4">
+                      <ResumeView resume={a.resume} />
+                    </div>
+                  </details>
+
+                  <details>
+                    <summary className="cursor-pointer text-sm underline-offset-2 hover:underline">
                       Score breakdown
                     </summary>
                     <div className="pt-4">
@@ -154,5 +164,70 @@ function ApplicantsPage() {
         </Button>
       )}
     </main>
+  )
+}
+
+const joinParts = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(' · ')
+
+/** Read-only view of the resume snapshot a candidate applied with. */
+function ResumeView({ resume }: { resume: ApplicantResume }) {
+  return (
+    <div className="flex flex-col gap-4 text-sm">
+      {resume.summary && <p className="whitespace-pre-wrap">{resume.summary}</p>}
+
+      {resume.skills.length > 0 && (
+        <section>
+          <h3 className="mb-1 font-medium">Skills</h3>
+          <ul className="flex flex-wrap gap-2">
+            {resume.skills.map((s) => (
+              <li key={s.name} className="rounded-full border px-2.5 py-0.5 text-xs">
+                {s.name} · {LEVEL_LABELS[s.level - 1]} · {s.years} yrs
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {resume.roles.length > 0 && (
+        <section>
+          <h3 className="mb-1 font-medium">Experience</h3>
+          <ul className="flex flex-col gap-3">
+            {resume.roles.map((r, i) => (
+              <li key={i}>
+                <p className="font-medium">{joinParts(r.title, r.company)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {joinParts(r.period, `${r.years} yrs`, r.domain)}
+                </p>
+                {r.description && <p className="mt-1 whitespace-pre-wrap">{r.description}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {resume.education.length > 0 && (
+        <section>
+          <h3 className="mb-1 font-medium">Education</h3>
+          <ul className="flex flex-col gap-1">
+            {resume.education.map((e, i) => (
+              <li key={i}>
+                {joinParts(DEGREE_LABELS[e.degreeLevel], e.field, e.institution, e.period)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <p className="text-muted-foreground">
+        {joinParts(
+          resume.certifications.length > 0
+            ? `Certifications: ${resume.certifications.join(', ')}`
+            : undefined,
+          resume.leadershipLevel > 0
+            ? `Leadership: ${LEADERSHIP_LABELS[resume.leadershipLevel]}`
+            : undefined,
+        )}
+      </p>
+    </div>
   )
 }

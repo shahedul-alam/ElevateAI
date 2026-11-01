@@ -3,7 +3,7 @@ import { HttpError } from '../../middleware/errors'
 import { hashContent } from '../../lib/content-hash'
 import { assertApprovedTerms, termNamesFor } from '../catalog/catalog.service'
 import { canonicalizeProfile } from './candidate-profile.canonical'
-import type { ProfileInput } from './candidate-profile.schema'
+import { parseStoredProfile, type ProfileInput } from './candidate-profile.schema'
 
 type VersionRow = { id: string; createdAt: Date; content: unknown }
 
@@ -11,7 +11,7 @@ const toDto = (v: VersionRow, currentId: string | null) => ({
   id: v.id,
   createdAt: v.createdAt,
   isCurrent: v.id === currentId,
-  content: v.content as ProfileInput,
+  content: parseStoredProfile(v.content),
 })
 
 async function assertCatalogTerms(input: ProfileInput) {

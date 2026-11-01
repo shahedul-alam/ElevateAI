@@ -1,4 +1,4 @@
-import { uniqueSorted } from '../../lib/content-hash'
+import { hashContent, uniqueSorted } from '../../lib/content-hash'
 import type { ProfileInput } from './candidate-profile.schema'
 
 /**
@@ -19,15 +19,20 @@ export function canonicalizeProfile(input: ProfileInput): ProfileInput {
   const prefs = input.preferences
   return {
     headline: input.headline,
+    summary: input.summary,
     skills: [...skills.values()].sort((a, b) => (a.termId < b.termId ? -1 : 1)),
+    // Full-content tiebreak: two roles with the same title must still sort the same way every time.
     roles: input.roles
-      .map((r) => ({ title: r.title, years: r.years, ...(r.domainId && { domainId: r.domainId }) }))
-      .sort(
-        (a, b) =>
-          a.title.localeCompare(b.title) ||
-          (a.domainId ?? '').localeCompare(b.domainId ?? '') ||
-          a.years - b.years,
-      ),
+      .map((r) => ({
+        title: r.title,
+        years: r.years,
+        ...(r.domainId && { domainId: r.domainId }),
+        company: r.company,
+        period: r.period,
+        description: r.description,
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title) || (hashContent(a) < hashContent(b) ? -1 : 1)),
+    education: [...input.education].sort((a, b) => (hashContent(a) < hashContent(b) ? -1 : 1)),
     leadershipLevel: input.leadershipLevel,
     certIds: uniqueSorted(input.certIds),
     unmapped: uniqueSorted(input.unmapped),

@@ -1,8 +1,9 @@
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import type { ApplicationStatus } from '../../../generated/prisma/client'
-import type { ProfileInput } from '../candidate-profile/candidate-profile.schema'
-import type { JobInput } from '../jobs/jobs.schema'
+import { termNamesFor } from '../catalog/catalog.service'
+import { parseStoredProfile, type ProfileInput } from '../candidate-profile/candidate-profile.schema'
+import { parseStoredJob } from '../jobs/jobs.schema'
 import {
   loadCurrentProfile,
   nameBreakdown,
@@ -38,7 +39,7 @@ export async function applyToJob(candidateId: string, jobId: string) {
   if (existing) throw new HttpError(409, 'You have already applied to this job')
 
   // Frozen here: both versions and the result are stored, so later edits never move this score.
-  const match = scoreMatch(profile.content, job.currentVersion.content as JobInput)
+  const match = scoreMatch(profile.content, parseStoredJob(job.currentVersion.content))
   try {
     return await prisma.$transaction(async (tx) => {
       const application = await tx.application.create({
@@ -79,12 +80,36 @@ export async function listCandidateApplications(candidateId: string) {
     id: a.id,
     jobId: a.job.id,
     jobStatus: a.job.status,
-    title: (a.jobVersion.content as JobInput).title,
+    title: parseStoredJob(a.jobVersion.content).title,
     status: a.status,
     matchScore: a.matchScore,
     engineVersion: a.engineVersion,
     createdAt: a.createdAt,
   }))
+}
+
+/**
+ * What an employer sees of the resume the candidate applied with. Preferences (location, work
+ * mode, minimum salary) are the candidate's own and are left out.
+ */
+function resumeView(p: ProfileInput, names: Record<string, string>) {
+  const name = (id: string) => names[id] ?? id
+  return {
+    headline: p.headline,
+    summary: p.summary,
+    leadershipLevel: p.leadershipLevel,
+    skills: p.skills.map((s) => ({ name: name(s.termId), level: s.level, years: s.years })),
+    roles: p.roles.map((r) => ({
+      title: r.title,
+      company: r.company,
+      period: r.period,
+      years: r.years,
+      domain: r.domainId ? name(r.domainId) : undefined,
+      description: r.description,
+    })),
+    education: p.education,
+    certifications: p.certIds.map(name),
+  }
 }
 
 /** Applicants for one of the employer's jobs, best score first (earlier applicant, then id, break ties). */
@@ -104,9 +129,18 @@ export async function listApplicants(employerId: string, jobId: string, query: A
   })
   const page = rows.slice(0, query.limit)
 
+  const profiles = page.map((a) => parseStoredProfile(a.profileVersion.content))
+  const names = await termNamesFor(
+    profiles.flatMap((p) => [
+      ...p.skills.map((s) => s.termId),
+      ...p.roles.flatMap((r) => (r.domainId ? [r.domainId] : [])),
+      ...p.certIds,
+    ]),
+  )
+
   const applicants = await Promise.all(
-    page.map(async (a) => {
-      const profile = a.profileVersion.content as ProfileInput
+    page.map(async (a, i) => {
+      const profile = profiles[i]!
       return {
         id: a.id,
         candidateName: a.candidate.name,
@@ -119,6 +153,7 @@ export async function listApplicants(employerId: string, jobId: string, query: A
         // The job was edited after this candidate applied, so the score reflects its earlier requirements.
         scoredAgainstOlderVersion: a.jobVersionId !== job.currentVersionId,
         createdAt: a.createdAt,
+        resume: resumeView(profile, names),
         breakdown: await nameBreakdown(a.matchBreakdown as Breakdown),
       }
     }),
