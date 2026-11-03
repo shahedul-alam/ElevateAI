@@ -43,8 +43,6 @@ export default function Jobs() {
     <main className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold tracking-tight">Jobs</h1>
 
-      {isCandidate && <Recommended query={recommended} />}
-
       <form onSubmit={onSearch} className="mb-6 grid gap-2 sm:grid-cols-[1fr_10rem_12rem_auto]">
         <Input
           aria-label="Search jobs"
@@ -78,6 +76,8 @@ export default function Jobs() {
         </NativeSelect>
         <Button type="submit">Search</Button>
       </form>
+
+      {isCandidate && <Recommended query={recommended} />}
 
       {jobs.isPending ? (
         <p className="text-sm text-muted-foreground">Loading...</p>
@@ -136,28 +136,54 @@ export default function Jobs() {
 }
 
 function Recommended({ query }: { query: ReturnType<typeof useRecommended> }) {
+  const [open, setOpen] = useState(false)
+
   if (query.isPending) return null
   if (query.isError) {
     // 409 means no resume yet: that is a prompt, not a failure.
     if (getApiError(query.error).status !== 409) return null
-    return (
-      <p className="mb-6 rounded-lg border p-3 text-sm text-muted-foreground">
-        <Link to="/resume" className="underline">
-          Build your resume
-        </Link>{' '}
-        to see jobs ranked by how well you match.
-      </p>
-    )
+  } else if (query.data.jobs.length === 0) {
+    return null
   }
-  if (query.data.jobs.length === 0) return null
 
   return (
-    <section aria-labelledby="recommended-heading" className="mb-8">
-      <h2 id="recommended-heading" className="mb-3 text-lg font-semibold">
+    <div className="mb-6">
+      <Button
+        type="button"
+        variant="outline"
+        aria-expanded={open}
+        aria-controls="recommended-panel"
+        onClick={() => setOpen((o) => !o)}
+      >
+        Recommended for you
+        <span className="text-xs text-muted-foreground">{open ? 'Hide' : 'Show'}</span>
+      </Button>
+      {open && (
+        <div id="recommended-panel" className="mt-3">
+          {query.isError ? (
+            <p className="rounded-lg border p-3 text-sm text-muted-foreground">
+              <Link to="/resume" className="underline">
+                Build your resume
+              </Link>{' '}
+              to see jobs ranked by how well you match.
+            </p>
+          ) : (
+            <RecommendedList jobs={query.data.jobs} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RecommendedList({ jobs }: { jobs: NonNullable<ReturnType<typeof useRecommended>['data']>['jobs'] }) {
+  return (
+    <section aria-labelledby="recommended-heading">
+      <h2 id="recommended-heading" className="sr-only">
         Recommended for you
       </h2>
       <ul className="flex flex-col gap-3">
-        {query.data.jobs.map((job) => (
+        {jobs.map((job) => (
           <li key={job.id}>
             <Link to={`/jobs/${job.id}`} className="block rounded-xl focus-visible:outline-2">
               <Card className="transition-colors hover:bg-accent/40">
