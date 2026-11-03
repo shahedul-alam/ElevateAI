@@ -34,6 +34,16 @@ Goal: a match score must be reproducible. If a candidate restores an earlier res
 - **View, download and edit (built).** `/resume/preview` shows the resume as a formatted page for the current version or any older one, and downloads it as a PDF generated in the browser (A4, one ATS-friendly single-column layout, Helvetica; non-Latin text is warned about, not embedded). Job preferences never appear. An older version can be opened as an editable copy (`/resume?from=<id>`); saving makes a new version. For the resume to print in the order the candidate wants, roles and education keep their entered order and that order is part of the saved content (rearranging = a new version, score unchanged); sets such as skills and certifications stay sorted. Word/text/JSON exports and template choices were considered and left out of this phase.
 - **Embeddings** are retrieval-only and not built yet. Recommendations currently score the newest 200 active jobs in process, best first.
 
+### 1b. Revision: job post details and company profiles
+
+- **Job post details are display-only.** A job post also carries `employmentType` (full time, part time, contract, internship), `applicationDeadline`, and the ordered text lists `responsibilities`, `qualifications`, `perks` and `otherDetails`. They are stored in the same immutable `JobVersion` JSON (no migration), are part of the content hash, and are never read by the engine or by the publish rule, so adding or editing them never changes a score. Empty lists are omitted from the canonical form so older versions keep their hashes. The deadline is shown only; it does not close the job.
+- **One renderer per page type.** `JobPostView` renders a job for both the public `/jobs/:id` and the employer's live Preview tab; `CompanyProfileView` does the same for companies, so a preview can never drift from what candidates see. The employer job and company forms have Edit and Preview tabs (the preview shows unsaved edits). Closed jobs open read-only.
+- **Company profiles.** Each employer account has one `Company` (created at sign-up, backfilled for existing employers): name, tagline, about, mission, headquarters, size, funding stage, founded year, industry, work policy, website and social links, culture principles, awards and recognition, benefits and hubs. It is current information (editable, not versioned, never scored). Candidates reach it from every job post and job card, from the public `/companies` directory (search and industry filter, verified companies first, keyset paging) and from the navbar. Empty profiles render a generated initials logo and gradient cover and hide empty sections.
+- **Verification is an admin-granted badge, not an approval to post.** Only an admin can set `verified`; it is not part of the employer's save payload, and it is revoked automatically when the company's name, website or social links change, so a verified badge cannot be moved onto a different identity.
+- **Images in Postgres.** Logo (512 KB) and cover (2 MB) are stored in `CompanyImage` as PNG, JPEG or WebP, with the type decided from the file bytes. All access goes through one module (`company.images.ts`), so object storage (S3, Cloudinary) can replace it later. Image URLs carry the content hash and are cached as immutable; conditional requests answer 304 without reading the blob.
+- **Confirm before irreversible actions.** Applying (an application cannot be withdrawn) and closing a job (a closed job cannot be edited or reopened) ask first in an in-app modal (`ConfirmDialog`), never `window.confirm`.
+- **Per-user client cache.** The client clears all cached data when the signed-in user changes, so one user's data is never shown to the next person on the same tab.
+
 ## 2. Architecture
 
 Monorepo (Bun workspaces):
@@ -57,9 +67,9 @@ e2e/            Playwright
 - `users` (Better Auth managed): id, email, role, name.
 - `candidateProfiles` + `profileVersions`: built (see 1a). One profile per user with `currentVersionId`; each version holds the content as `jsonb` (headline, summary, skills {termId, level, years}, roles {title, years, domainId, company, period, description}, education {degreeLevel, field, institution, period}, leadershipLevel, certIds, unmapped, preferences) and a `contentHash`. The original design (below) is superseded: ~~skills (`jsonb` of {name, years, level}), experience/education, certifications[], industries[], totalYears, location, `embedding vector(1536)`, `parsedResumeId`~~.
 - `catalogTerms` / `catalogAliases`: built; kind `skill|certification|domain`, stable `kind:slug` ids.
-- `employerProfiles`: userId, company name, website, size, industry.
+- `companies` + `companyImages`: built (replaces the planned `employerProfiles`). One company per employer (`ownerId` unique): name, tagline, about, mission, headquarters, size, fundingStage, foundedYear, website, `links`, `culture`, `benefits`, `hubs`, `awards` (`jsonb`), `domainId` (catalog term), `workPolicy`, `verified` (admin only), timestamps. `companyImages` holds `logo`/`cover` bytes with content type and etag, unique per (company, kind).
 - `resumeEvaluations`: userId (nullable for anonymous), extractedText, structured `jsonb`, score 0–100, strengths[], weaknesses[], keywordRecs[], status enum (`queued|processing|done|failed`), createdAt, `expiresAt` for anonymous rows (purged by a scheduled BullMQ job).
-- `jobs` + `jobVersions`: built. `jobs` holds employerId, status enum (`draft|active|closed`), `currentVersionId`, `publishedAt`; each immutable version holds the post as `jsonb` (title, description, skills {termId, required, minLevel, minYears?}, minYears, domainId, minDomainYears, minDegreeLevel, leadershipLevel, certIds, location, workMode, salary range). No embedding column yet.
+- `jobs` + `jobVersions`: built. `jobs` holds employerId, status enum (`draft|active|closed`), `currentVersionId`, `publishedAt`; each immutable version holds the post as `jsonb` (title, description, skills {termId, required, minLevel, minYears?}, minYears, domainId, minDomainYears, minDegreeLevel, leadershipLevel, certIds, location, workMode, salary range, plus the display-only details in 1b). No embedding column yet.
 - `applications`: built. jobId, candidateId, `profileVersionId`, `jobVersionId`, status enum (`applied|under_review|rejected|hired`), matchScore, matchBreakdown (`jsonb`, ids only), `engineVersion`, plus an `applicationStatusHistory` table (applicationId, from, to, at). Unique constraint on (jobId, candidateId); FKs to `jobs`, `users` and the two version tables.
 - `notifications`: userId, type, payload, readAt.
 - Indexes: jobs full-text (`tsvector` GIN, via raw migration) + (status, createdAt); applications (jobId, matchScore desc); HNSW `vector_cosine_ops` indexes on `jobs.embedding` and `candidateProfiles.embedding`.
@@ -83,7 +93,9 @@ e2e/            Playwright
 - One function, `scoreMatch` in `matching.service.ts`, powers the gap view, the "recommended jobs" list (`GET /jobs/recommended`, jobs not yet applied to, best first, job id as tiebreak) and the score stored when applying, so numbers stay consistent. The stored score is never recomputed: it belongs to the profile and job versions captured at apply time. Applicants are ranked by it (earlier applicant, then id, break ties).
 - Unit tested with fixtures: hand-computed golden values, revert invariance, order invariance, monotonicity.
 
-**Job Posting Portal**: employer CRUD with state machine `draft → active → closed` (and `active ↔ draft`); only active jobs are public; closing blocks new applications; a post needs at least one scored requirement to be published; edits create new `JobVersion`s; ownership checks on every route. Candidate list per job paginated and sorted by matchScore.
+**Job Posting Portal**: employer CRUD with state machine `draft → active → closed` (and `active ↔ draft`); only active jobs are public; closing blocks new applications; a post needs at least one scored requirement to be published; edits create new `JobVersion`s; ownership checks on every route. Candidate list per job paginated and sorted by matchScore. The employer list page searches by title, filters by status and sorts, and a card opens the employer preview. Public jobs filter by work mode, employment type, industry and company.
+
+**Company Profiles** (built): see 1b. Public directory and page, employer editor with live preview, admin verification, image upload and serving. The company reference (id, name, tagline, verified, logo URL) is embedded in job cards, job detail and recommendations.
 
 **Dashboards**
 - Candidate: application tracker (four status columns/filters), recommended jobs, saved evaluation.
@@ -94,11 +106,11 @@ e2e/            Playwright
 
 ## 5. API Surface (REST, `/api/v1`)
 
-`auth/*` (Better Auth) · `me` · `candidate/profile` · `employer/profile` · `resumes/evaluate`, `resumes/:id` · `jobs` (public list/search/filter/pagination), `jobs/:id`, `jobs/:id/gap`, `jobs/recommended` · `employer/jobs` CRUD + `status` · `jobs/:id/apply` · `candidate/applications` · `employer/jobs/:id/applicants` · `applications/:id/status` · `notifications` (+ mark read). Consistent error envelope, Zod validation on every input, cursor pagination.
+`auth/*` (Better Auth) · `me` · `candidate/profile` · `employer/profile` · `resumes/evaluate`, `resumes/:id` · `jobs` (public list/search/filter/pagination), `jobs/:id`, `jobs/:id/gap`, `jobs/recommended` · `employer/jobs` CRUD + `status` · `companies` (directory), `companies/:id` (+ `logo`, `cover`) · `employer/company` (+ `logo`, `cover` upload/remove) · `admin/companies/:id/verification` · `jobs/:id/apply` · `candidate/applications` · `employer/jobs/:id/applicants` · `applications/:id/status` · `notifications` (+ mark read). Consistent error envelope, Zod validation on every input, cursor pagination.
 
 ## 6. Cross-Cutting Concerns
 
-- **Security**: Helmet, strict CORS, rate limits (heavy on anonymous evaluator and auth), upload validation, role + ownership checks, no PII in logs, secrets via env, prompt-injection hardening (resume text is delimited as untrusted data; LLM output is schema-validated and never executed).
+- **Security**: Helmet, strict CORS, `TRUST_PROXY` set to the real proxy hop count in deploys (so rate limits key on the client, not the proxy), rate limits (heavy on anonymous evaluator and auth), upload validation, role + ownership checks, no PII in logs, secrets via env, prompt-injection hardening (resume text is delimited as untrusted data; LLM output is schema-validated and never executed).
 - **Cost control**: per-user/IP evaluation quotas, embedding and score caching by content hash, max input length truncation.
 - **Privacy**: anonymous evaluations auto-expire (TTL 7 days); account deletion removes profile and evaluations; consent text on upload.
 - **Observability**: structured logging (pino), request IDs, Sentry, BullMQ dashboard (bull-board, admin only), health endpoint.
@@ -108,7 +120,7 @@ e2e/            Playwright
 
 - Unit (Bun test/Vitest): scoring functions, state machine, parsers, Zod schemas.
 - Integration: API routes against a real PostgreSQL (with pgvector) and Redis via Docker/Testcontainers, migrated with `prisma migrate deploy`; LLM calls mocked behind the provider interface.
-- E2E (Playwright): candidate signup → upload resume → see score → apply; employer signup → post job → publish → see ranked applicant → change status → candidate sees notification. LLM stubbed via test flag.
+- E2E (Playwright, built for the current scope: auth, profile, jobs, employer jobs page, matching, applications, company profile, including role/ownership regressions): candidate signup → upload resume → see score → apply; employer signup → post job → publish → see ranked applicant → change status → candidate sees notification. LLM stubbed via test flag.
 - Small golden set of ~10 sample resumes to check the evaluator rubric for stability.
 
 ## 8. Delivery Phases
@@ -140,5 +152,5 @@ Estimate ≈ 7–8 weeks for one full-time developer using AI coding agents; pha
 
 1. Confirm domain strategy (shared parent domain for cookies) and target regions.
 2. Confirm that email + in-app alerts are the full scope of "messaging".
-3. Decide whether employers need approval/verification before posting jobs (assumed no for MVP, admin can suspend).
+3. Employers do not need approval to post jobs (MVP). Admins can grant a "Verified Employer" badge on a company page (built); admin suspension of users and jobs is not built. Consider an admin review queue for company images and names, a cache purge or takedown path for removed images once a CDN is used, and moving images to object storage.
 4. Define the Admin's MVP capabilities (assumed: view/suspend users and jobs only).

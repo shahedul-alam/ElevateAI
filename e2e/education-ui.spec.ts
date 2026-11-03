@@ -108,6 +108,7 @@ test.describe('education requirement end to end', () => {
     await expect(education).toHaveAttribute('aria-valuenow', '67')
 
     await page.getByRole('button', { name: 'Apply with your current resume' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Submit application' }).click()
     await expect(page.getByText(/You applied on/)).toBeVisible()
 
     // The candidate edits their resume afterwards; the employer still sees the applied version.

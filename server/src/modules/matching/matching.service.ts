@@ -1,6 +1,7 @@
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import { termNamesFor } from '../catalog/catalog.service'
+import { companyRefSelect, toCompanyRef } from '../company/company.ref'
 import { parseStoredProfile, type ProfileInput } from '../candidate-profile/candidate-profile.schema'
 import { parseStoredJob, type JobInput } from '../jobs/jobs.schema'
 import { checkEligibility, matchEngine } from './matching.engine'
@@ -82,7 +83,7 @@ export async function recommendJobs(userId: string, limit: number) {
   const profile = await loadCurrentProfile(userId)
   const jobs = await prisma.job.findMany({
     where: { status: 'active', applications: { none: { candidateId: userId } } },
-    include: { currentVersion: true, employer: { select: { name: true } } },
+    include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
     take: RECOMMEND_POOL,
   })
@@ -97,7 +98,8 @@ export async function recommendJobs(userId: string, limit: number) {
   return {
     jobs: scored.map(({ job, content, match }) => ({
       id: job.id,
-      employerName: job.employer.name,
+      employerName: job.employer.company?.name ?? job.employer.name,
+      company: job.employer.company ? toCompanyRef(job.employer.company) : null,
       title: content.title,
       location: content.location,
       workMode: content.workMode,

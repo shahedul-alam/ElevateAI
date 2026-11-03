@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router'
 import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { STATUS_LABEL } from '@/features/applications/applications.api'
@@ -11,12 +13,21 @@ import { MatchBreakdown } from './match-breakdown'
 import { useGap } from './use-matching'
 
 /** "How you match" card on a job page: live gap view for candidates, plus applying. */
-export function MatchPanel({ jobId }: { jobId: string }) {
+export function MatchPanel({
+  jobId,
+  jobTitle,
+  companyName,
+}: {
+  jobId: string
+  jobTitle?: string
+  companyName?: string
+}) {
   const authStatus = useAuthStore((s) => s.status)
   const role = useAuthStore((s) => s.user?.role)
   const isCandidate = role === 'candidate'
   const gap = useGap(jobId, isCandidate)
   const apply = useApply()
+  const [confirming, setConfirming] = useState(false)
 
   if (authStatus === 'loading') return null
   if (authStatus === 'anonymous') {
@@ -74,6 +85,7 @@ export function MatchPanel({ jobId }: { jobId: string }) {
     apply.mutate(jobId, {
       onSuccess: (a) => toast.success('Application sent', { description: `Your match score was ${a.matchScore}%.` }),
       onError: (err) => toast.error('Could not apply', { description: getApiError(err).message }),
+      onSettled: () => setConfirming(false),
     })
 
   return (
@@ -101,9 +113,32 @@ export function MatchPanel({ jobId }: { jobId: string }) {
             </p>
           </div>
         ) : (
-          <Button onClick={onApply} disabled={apply.isPending} className="self-start">
-            {apply.isPending ? 'Applying...' : 'Apply with your current resume'}
-          </Button>
+          <>
+            <Button onClick={() => setConfirming(true)} disabled={apply.isPending} className="self-start">
+              Apply with your current resume
+            </Button>
+            <ConfirmDialog
+              open={confirming}
+              onOpenChange={setConfirming}
+              title={jobTitle ? `Apply to ${jobTitle}?` : 'Submit your application?'}
+              description={
+                <>
+                  <p>
+                    Your current resume will be sent to {companyName ?? 'the employer'}. Your match score right
+                    now is <strong>{score}%</strong>.
+                  </p>
+                  <p className="mt-2">
+                    That score stays fixed on your application even if you edit your resume later. An
+                    application cannot be withdrawn.
+                  </p>
+                </>
+              }
+              confirmLabel="Submit application"
+              pendingLabel="Applying..."
+              pending={apply.isPending}
+              onConfirm={onApply}
+            />
+          </>
         )}
       </CardContent>
     </Card>

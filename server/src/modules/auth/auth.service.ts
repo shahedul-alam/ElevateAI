@@ -3,6 +3,7 @@ import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import { auth } from './auth.config'
 import type { LoginInput, RegisterInput } from './auth.schema'
+import { ensureCompany } from '../company/company.service'
 
 /** Creates the account and a session. `headers` carries the session Set-Cookie for the response. */
 export async function registerUser(input: RegisterInput, requestHeaders: Headers) {
@@ -12,6 +13,10 @@ export async function registerUser(input: RegisterInput, requestHeaders: Headers
       headers: requestHeaders,
       returnHeaders: true,
     })
+    // Every employer gets a company page; getOwnCompany recreates it if this ever fails.
+    if (response.user.role === 'employer') {
+      await ensureCompany(response.user.id, response.user.name).catch((e) => console.error(e))
+    }
     return { user: response.user, headers }
   } catch (err) {
     if (isAPIError(err)) {

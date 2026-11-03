@@ -1,5 +1,6 @@
 import { api } from '@/lib/api'
 import type { WorkMode } from '@/features/profile/profile.schema'
+import type { CompanyRef } from '@/features/company/company.schema'
 
 export type DimensionKey =
   | 'skills'
@@ -32,6 +33,7 @@ export type Gap = Breakdown & {
 export type RecommendedJob = {
   id: string
   employerName: string
+  company: CompanyRef | null
   title: string
   location?: string
   workMode?: WorkMode

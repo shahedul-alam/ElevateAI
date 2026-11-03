@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 // /dashboard is a placeholder: that route does not exist yet.
 const candidateLinks = [
   { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
   { to: '/resume', label: 'Resume' },
   { to: '/applications', label: 'Applications' },
   { to: '/dashboard', label: 'Dashboard' },
@@ -36,7 +37,9 @@ const candidateLinks = [
 // Employers have no resume; they manage their postings instead.
 const employerLinks = [
   { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
   { to: '/employer/jobs', label: 'Your jobs' },
+  { to: '/employer/company', label: 'Company profile' },
   { to: '/dashboard', label: 'Dashboard' },
 ]
 
@@ -52,11 +55,15 @@ function useSignOut() {
   const queryClient = useQueryClient()
 
   return () => {
-    // Best effort: the local state is cleared even if the request fails.
-    signOutRequest().catch(() => {})
-    queryClient.removeQueries({ queryKey: SESSION_KEY })
-    clearUser()
-    navigate('/')
+    // Best effort: the local state is cleared even if the request fails, but only once it has settled,
+    // so the /me refetch that follows cannot find the old session and resurrect the user.
+    signOutRequest()
+      .catch(() => {})
+      .finally(() => {
+        queryClient.removeQueries({ queryKey: SESSION_KEY })
+        clearUser()
+        navigate('/')
+      })
   }
 }
 

@@ -1,8 +1,14 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Browser, type Page } from '@playwright/test'
 import { registerUser } from './support/auth'
 import { publishJobApi, uniqueTitle } from './support/jobs'
-import { getGap, PROFILE_A, PROFILE_B, publishReactJob, publishScoredJob, RARE_PROFILE_ROLES, rareMinYears, SCORE_A } from './support/matching'
+import { applyApi, getGap, PROFILE_A, PROFILE_B, publishReactJob, publishScoredJob, RARE_PROFILE_ROLES, rareMinYears, SCORE_A } from './support/matching'
 import { saveProfileApi } from './support/profile'
+
+/** Opens the apply confirmation and submits it. */
+async function applyWithConfirmation(page: Page) {
+  await page.getByRole('button', { name: 'Apply with your current resume' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Submit application' }).click()
+}
 
 test.describe('job match card', () => {
   test('shows the live score, breakdown and radar, then applies', async ({ page, browser, baseURL }) => {
@@ -26,7 +32,7 @@ test.describe('job match card', () => {
     await expect(page.getByText('Preferred skills: Python')).toBeVisible()
     await expect(page.getByText('Certifications: AWS Certified Solutions Architect')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Apply with your current resume' }).click()
+    await applyWithConfirmation(page)
     await expect(page.getByText('Application sent')).toBeVisible()
     await expect(page.getByText(/You applied on/)).toBeVisible()
     await expect(page.getByText(`Your score when you applied: ${SCORE_A}%`)).toBeVisible()
@@ -77,7 +83,7 @@ test.describe('job match card', () => {
     await registerUser(page.request)
     await saveProfileApi(page.request, PROFILE_A)
     await page.goto(`/jobs/${job.id}`)
-    await page.getByRole('button', { name: 'Apply with your current resume' }).click()
+    await applyWithConfirmation(page)
     await expect(page.getByText(`Your score when you applied: ${SCORE_A}%`)).toBeVisible()
 
     await saveProfileApi(page.request, PROFILE_B)
@@ -99,9 +105,126 @@ test.describe('job match card', () => {
 
     const close = await employerContext.request.post(`/api/employer/jobs/${job.id}/close`)
     expect(close.status()).toBe(200)
-    await page.getByRole('button', { name: 'Apply with your current resume' }).click()
+    await applyWithConfirmation(page)
     await expect(page.getByText('Could not apply')).toBeVisible()
     await expect(page.getByText(/You applied on/)).toHaveCount(0)
+    await employerContext.close()
+  })
+})
+
+test.describe('apply confirmation', () => {
+  const applyButton = (page: Page) => page.getByRole('button', { name: 'Apply with your current resume' })
+
+  async function setup(page: Page, browser: Browser, baseURL: string | undefined) {
+    const employerContext = await browser.newContext({ baseURL })
+    await registerUser(employerContext.request, { role: 'employer' })
+    const title = uniqueTitle('UI Confirm')
+    const job = await publishScoredJob(employerContext.request, { title })
+    await registerUser(page.request)
+    await saveProfileApi(page.request, PROFILE_A)
+    await page.goto(`/jobs/${job.id}`)
+    await expect(page.getByTestId('live-score')).toHaveText(`${SCORE_A}%`)
+    return { employerContext, job, title }
+  }
+
+  const applicationCount = async (page: Page) => {
+    const res = await page.request.get('/api/candidate/applications')
+    expect(res.status()).toBe(200)
+    return ((await res.json()).applications as unknown[]).length
+  }
+
+  test('names the job and shows the live score before anything is sent', async ({ page, browser, baseURL }) => {
+    const { employerContext, title } = await setup(page, browser, baseURL)
+
+    await applyButton(page).click()
+    const modal = page.getByRole('alertdialog', { name: `Apply to ${title}?` })
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText(`Your match score right now is ${SCORE_A}%`)
+    await expect(modal).toContainText('cannot be withdrawn')
+    await expect(modal.getByRole('button', { name: 'Cancel' })).toBeVisible()
+    await expect(modal.getByRole('button', { name: 'Submit application' })).toBeVisible()
+    expect(await applicationCount(page)).toBe(0)
+    await employerContext.close()
+  })
+
+  test('Cancel sends nothing', async ({ page, browser, baseURL }) => {
+    const { employerContext } = await setup(page, browser, baseURL)
+
+    await applyButton(page).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(applyButton(page)).toBeVisible()
+    await expect(page.getByText(/You applied on/)).toHaveCount(0)
+    await expect(page.getByText('Application sent')).toHaveCount(0)
+    expect(await applicationCount(page)).toBe(0)
+    await employerContext.close()
+  })
+
+  test('Escape sends nothing', async ({ page, browser, baseURL }) => {
+    const { employerContext } = await setup(page, browser, baseURL)
+
+    await applyButton(page).click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(applyButton(page)).toBeVisible()
+    expect(await applicationCount(page)).toBe(0)
+    await employerContext.close()
+  })
+
+  test('can cancel and then still apply from the same page', async ({ page, browser, baseURL }) => {
+    const { employerContext } = await setup(page, browser, baseURL)
+
+    await applyButton(page).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await applyWithConfirmation(page)
+    await expect(page.getByText(/You applied on/)).toBeVisible()
+    expect(await applicationCount(page)).toBe(1)
+    await employerContext.close()
+  })
+
+  test('Submit applies exactly once and shows the applied status', async ({ page, browser, baseURL }) => {
+    const { employerContext, job } = await setup(page, browser, baseURL)
+
+    await applyWithConfirmation(page)
+    await expect(page.getByText('Application sent')).toBeVisible()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(page.getByText(/You applied on/)).toBeVisible()
+    await expect(page.getByText(`Your score when you applied: ${SCORE_A}%`)).toBeVisible()
+    await expect(applyButton(page)).toHaveCount(0)
+    expect(await applicationCount(page)).toBe(1)
+    expect((await getGap(page.request, job.id)).application?.matchScore).toBe(SCORE_A)
+    await employerContext.close()
+  })
+
+  test('a candidate who already applied sees no Apply button', async ({ page, browser, baseURL }) => {
+    const employerContext = await browser.newContext({ baseURL })
+    await registerUser(employerContext.request, { role: 'employer' })
+    const job = await publishScoredJob(employerContext.request)
+    await registerUser(page.request)
+    await saveProfileApi(page.request, PROFILE_A)
+    await applyApi(page.request, job.id)
+
+    await page.goto(`/jobs/${job.id}`)
+    await expect(page.getByText(/You applied on/)).toBeVisible()
+    await expect(applyButton(page)).toHaveCount(0)
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await employerContext.close()
+  })
+
+  test('applying to a job that closed meanwhile shows an error and closes the modal', async ({ page, browser, baseURL }) => {
+    const { employerContext, job } = await setup(page, browser, baseURL)
+
+    await applyButton(page).click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+    const close = await employerContext.request.post(`/api/employer/jobs/${job.id}/close`)
+    expect(close.status()).toBe(200)
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Submit application' }).click()
+    await expect(page.getByText('Could not apply')).toBeVisible()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(page.getByText(/You applied on/)).toHaveCount(0)
+    expect(await applicationCount(page)).toBe(0)
     await employerContext.close()
   })
 })
@@ -119,6 +242,7 @@ test.describe('match card for other visitors', () => {
     await expect(page).toHaveURL(/\/resume$/)
 
     await page.goto('/jobs')
+    await page.getByRole('button', { name: /Recommended for you/ }).click()
     await expect(page.getByRole('link', { name: 'Build your resume' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Recommended for you' })).toHaveCount(0)
     await employerContext.close()
@@ -170,11 +294,12 @@ test.describe('recommended jobs on /jobs', () => {
     const score = (await getGap(page.request, job.id)).score
 
     await page.goto('/jobs')
-    const section = page.getByRole('region', { name: 'Recommended for you' })
+    await page.getByRole('button', { name: /Recommended for you/ }).click()
+    const section =page.getByRole('region', { name: 'Recommended for you' })
     await expect(section).toBeVisible()
-    const card = section.getByRole('link', { name: new RegExp(title) })
-    await expect(card.getByLabel(`Match score ${score} percent`)).toBeVisible()
-    await card.click()
+    const item = section.getByRole('listitem').filter({ hasText: title })
+    await expect(item.getByLabel(`Match score ${score} percent`)).toBeVisible()
+    await item.getByRole('link', { name: new RegExp(title) }).click()
     await expect(page).toHaveURL(/\/jobs\/[0-9a-f-]+$/)
     await expect(page.getByTestId('live-score')).toHaveText(`${score}%`)
     await employerContext.close()

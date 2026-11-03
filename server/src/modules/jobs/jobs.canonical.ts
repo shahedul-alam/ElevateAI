@@ -29,7 +29,19 @@ export function canonicalizeJob(input: JobInput): JobInput {
     ...(input.workMode && { workMode: input.workMode }),
     ...(input.salaryMin !== undefined && { salaryMin: input.salaryMin }),
     ...(input.salaryMax !== undefined && { salaryMax: input.salaryMax }),
-  }
+    ...(input.employmentType && { employmentType: input.employmentType }),
+    ...(input.applicationDeadline && { applicationDeadline: input.applicationDeadline }),
+    ...list('responsibilities', input.responsibilities),
+    ...list('qualifications', input.qualifications),
+    ...list('perks', input.perks),
+    ...list('otherDetails', input.otherDetails),
+  } as JobInput // empty lists are omitted (so older hashes stay valid); parsing re-applies the [] default
+}
+
+/** Display lists keep the employer's order (it is what readers see), dropping repeats and empties. */
+const list = <K extends string>(key: K, items: string[]) => {
+  const unique = [...new Set(items)]
+  return unique.length > 0 ? ({ [key]: unique } as Record<K, string[]>) : {}
 }
 
 /** A job with no scored requirement would match everyone at 100, so it cannot be published. */

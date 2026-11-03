@@ -15,7 +15,15 @@ export type JobContent = {
   workMode?: 'onsite' | 'hybrid' | 'remote'
   salaryMin?: number
   salaryMax?: number
+  employmentType?: EmploymentType
+  applicationDeadline?: string
+  responsibilities?: string[]
+  qualifications?: string[]
+  perks?: string[]
+  otherDetails?: string[]
 }
+
+export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'internship'
 
 export type JobDto = {
   id: string

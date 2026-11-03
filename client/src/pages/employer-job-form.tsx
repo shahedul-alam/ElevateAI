@@ -2,8 +2,15 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useFieldArray, useForm, useWatch } from 'react-hook-form'
-import { Link, useNavigate, useParams } from 'react-router'
+import {
+  useFieldArray,
+  useForm,
+  useWatch,
+  type Control,
+  type FieldErrors,
+  type UseFormRegister,
+} from 'react-hook-form'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 
 import { FieldError } from '@/components/field-error'
@@ -12,10 +19,16 @@ import { RequireRole } from '@/components/require-role'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { ListCard, ListRow } from '@/components/list-card'
 import { Label } from '@/components/ui/label'
+import { useAuthStore } from '@/features/auth/auth.store'
+import { useMyCompany } from '@/features/company/use-company'
+import { JobPostView } from '@/features/jobs/job-post-view'
 import { searchCatalog } from '@/features/catalog/catalog.api'
 import { CatalogPicker } from '@/features/catalog/catalog-picker'
 import {
+  EMPLOYMENT_LABELS,
+  EMPLOYMENT_TYPES,
   emptyJobForm,
   jobFormSchema,
   toJobForm,
@@ -41,6 +54,50 @@ export default function EmployerJobForm() {
 
 const textareaClass =
   'min-h-32 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive dark:bg-input/30'
+
+type ListName = 'responsibilities' | 'qualifications' | 'perks' | 'otherDetails'
+
+/** A free-text bullet list for the job post, built with an Add button. */
+function JobListCard({
+  name,
+  title,
+  description,
+  placeholder,
+  control,
+  register,
+  errors,
+}: {
+  name: ListName
+  title: string
+  description: string
+  placeholder: string
+  control: Control<JobFormValues>
+  register: UseFormRegister<JobFormValues>
+  errors: FieldErrors<JobFormValues>
+}) {
+  const rows = useFieldArray({ control, name })
+  return (
+    <ListCard
+      title={title}
+      description={description}
+      count={rows.fields.length}
+      max={20}
+      error={errors[name]?.root?.message ?? errors[name]?.message}
+      onAdd={() => rows.append({ value: '' })}
+    >
+      {rows.fields.map((row, i) => (
+        <ListRow key={row.id} label={`${title} ${i + 1}`} onRemove={() => rows.remove(i)}>
+          <Input
+            aria-label={`${title} ${i + 1}`}
+            placeholder={placeholder}
+            aria-invalid={!!errors[name]?.[i]?.value}
+            {...register(`${name}.${i}.value`)}
+          />
+        </ListRow>
+      ))}
+    </ListCard>
+  )
+}
 
 function JobFormPage() {
   const { id } = useParams()
@@ -71,6 +128,13 @@ function JobFormPage() {
   })
   const skills = useFieldArray({ control, name: 'skills' })
   const certIds = useWatch({ control, name: 'certIds' })
+  const watched = useWatch({ control }) as JobFormValues
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = searchParams.get('tab') === 'preview' ? 'preview' : 'edit'
+  const user = useAuthStore((s) => s.user)
+  const myCompany = useMyCompany()
+  const setTab = (next: 'edit' | 'preview') =>
+    setSearchParams(next === 'preview' ? { tab: 'preview' } : {}, { replace: true })
 
   useEffect(() => {
     if (job.data) reset(toJobForm(job.data.content))
@@ -120,6 +184,22 @@ function JobFormPage() {
 
   const skillName = (termId: string) => names[termId] ?? termId
 
+  // Live preview of the unsaved form. Half-typed numbers become "not set" instead of NaN.
+  const previewContent = (() => {
+    const p = toJobPayload({ ...emptyJobForm, ...watched })
+    const finite = (n?: number) => (n !== undefined && Number.isFinite(n) ? n : undefined)
+    return {
+      ...p,
+      salaryMin: finite(p.salaryMin),
+      salaryMax: finite(p.salaryMax),
+      skills: p.skills.map((s) => ({ ...s, minYears: finite(s.minYears) })),
+    }
+  })()
+  const previewNames = {
+    ...Object.fromEntries((domains.data ?? []).map((d) => [d.id, d.name])),
+    ...names,
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
@@ -130,12 +210,55 @@ function JobFormPage() {
           </p>
           {closed && (
             <p role="status" className="mt-2 text-sm text-destructive">
-              This job is closed and can no longer be edited.
+              This job is closed and can no longer be edited. You can still preview it.
             </p>
           )}
         </div>
 
-        <fieldset disabled={closed} className="flex flex-col gap-6">
+        <div role="tablist" aria-label="Job post" className="flex gap-1 border-b">
+          {(['edit', 'preview'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              id={`job-tab-${t}`}
+              aria-selected={tab === t}
+              aria-controls={`job-panel-${t}`}
+              onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium capitalize outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                tab === t
+                  ? 'border-primary text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'preview' && (
+          <div role="tabpanel" id="job-panel-preview" aria-labelledby="job-tab-preview" className="flex flex-col gap-4">
+            <p role="status" className="rounded-lg border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+              This is how candidates will see your post
+              {isDirty ? ', including your unsaved changes.' : '.'}
+            </p>
+            <JobPostView
+              content={previewContent}
+              termNames={previewNames}
+              employerName={job.data?.employerName ?? user?.name}
+              company={myCompany.data}
+            />
+          </div>
+        )}
+
+        <fieldset
+          disabled={closed}
+          hidden={tab !== 'edit'}
+          id="job-panel-edit"
+          role="tabpanel"
+          aria-labelledby="job-tab-edit"
+          className="flex flex-col gap-6 [&[hidden]]:hidden"
+        >
           <Card>
             <CardHeader>
               <CardTitle>Basics</CardTitle>
@@ -174,6 +297,22 @@ function JobFormPage() {
                   </NativeSelect>
                 </div>
                 <div className="flex flex-col gap-2">
+                  <Label htmlFor="employmentType">Employment type</Label>
+                  <NativeSelect id="employmentType" {...register('employmentType')}>
+                    <option value="">Not specified</option>
+                    {EMPLOYMENT_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {EMPLOYMENT_LABELS[t]}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="applicationDeadline">Application deadline</Label>
+                  <Input id="applicationDeadline" type="date" {...register('applicationDeadline')} />
+                  <FieldError message={errors.applicationDeadline?.message} />
+                </div>
+                <div className="flex flex-col gap-2">
                   <Label htmlFor="salaryMin">Minimum salary (per year)</Label>
                   <Input id="salaryMin" inputMode="numeric" {...register('salaryMin')} />
                   <FieldError message={errors.salaryMin?.message} />
@@ -186,6 +325,43 @@ function JobFormPage() {
               </div>
             </CardContent>
           </Card>
+
+          <JobListCard
+            name="responsibilities"
+            title="Key responsibilities"
+            description="What the person will do day to day."
+            placeholder="e.g. Own the checkout service end to end"
+            control={control}
+            register={register}
+            errors={errors}
+          />
+          <JobListCard
+            name="qualifications"
+            title="Qualifications"
+            description="Nice-to-haves and background. These are shown to candidates but not scored."
+            placeholder="e.g. Experience with payment systems"
+            control={control}
+            register={register}
+            errors={errors}
+          />
+          <JobListCard
+            name="perks"
+            title="Perks & employee benefits"
+            description="Health cover, leave, equipment, bonuses and so on."
+            placeholder="e.g. 25 days paid leave"
+            control={control}
+            register={register}
+            errors={errors}
+          />
+          <JobListCard
+            name="otherDetails"
+            title="Other details"
+            description="Anything else candidates should know, such as the interview process or visa support."
+            placeholder="e.g. Visa sponsorship available"
+            control={control}
+            register={register}
+            errors={errors}
+          />
 
           <Card className="overflow-visible">
             <CardHeader>

@@ -3,6 +3,7 @@ import { hashContent } from '../../lib/content-hash'
 import { HttpError } from '../../middleware/errors'
 import type { Prisma } from '../../../generated/prisma/client'
 import { assertApprovedTerms, termNamesFor } from '../catalog/catalog.service'
+import { companyRefSelect, toCompanyRef } from '../company/company.ref'
 import { canonicalizeJob, hasScoredRequirement } from './jobs.canonical'
 import { parseStoredJob, type JobInput, type JobListQuery } from './jobs.schema'
 
@@ -148,11 +149,16 @@ export async function listPublicJobs(query: JobListQuery) {
     })
   }
   if (query.workMode) and.push({ content: { path: ['workMode'], equals: query.workMode } })
+  if (query.employmentType) and.push({ content: { path: ['employmentType'], equals: query.employmentType } })
   if (query.domainId) and.push({ content: { path: ['domainId'], equals: query.domainId } })
 
   const rows = await prisma.job.findMany({
-    where: { status: 'active', currentVersion: { AND: and } },
-    include: { currentVersion: true, employer: { select: { name: true } } },
+    where: {
+      status: 'active',
+      currentVersion: { AND: and },
+      ...(query.companyId && { employer: { company: { id: query.companyId } } }),
+    },
+    include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
     take: query.limit + 1,
     ...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
@@ -170,10 +176,13 @@ export async function listPublicJobs(query: JobListQuery) {
   return {
     jobs: cards.map(({ job, content }) => ({
       id: job.id,
-      employerName: job.employer.name,
+      employerName: job.employer.company?.name ?? job.employer.name,
+      company: job.employer.company ? toCompanyRef(job.employer.company) : null,
       title: content.title,
       location: content.location,
       workMode: content.workMode,
+      employmentType: content.employmentType,
+      applicationDeadline: content.applicationDeadline,
       salaryMin: content.salaryMin,
       salaryMax: content.salaryMax,
       domainId: content.domainId,
@@ -188,8 +197,13 @@ export async function listPublicJobs(query: JobListQuery) {
 export async function getPublicJob(id: string) {
   const job = await prisma.job.findFirst({
     where: { id, status: 'active' },
-    include: { currentVersion: true, employer: { select: { name: true } } },
+    include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
   })
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')
-  return { ...(await toDto(job, job.currentVersion)), employerName: job.employer.name }
+  const { company } = job.employer
+  return {
+    ...(await toDto(job, job.currentVersion)),
+    employerName: company?.name ?? job.employer.name,
+    company: company ? toCompanyRef(company) : null,
+  }
 }

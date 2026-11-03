@@ -2,9 +2,13 @@ import { Route, Routes } from 'react-router'
 
 import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/sonner'
+import { useResetCacheOnUserChange } from '@/features/auth/use-reset-cache-on-user-change'
 import { useSession } from '@/features/auth/use-session'
 import Applications from '@/pages/applications'
+import CompanyPage from '@/pages/company'
+import Companies from '@/pages/companies'
 import EmployerApplicants from '@/pages/employer-applicants'
+import EmployerCompany from '@/pages/employer-company'
 import EmployerJobForm from '@/pages/employer-job-form'
 import EmployerJobs from '@/pages/employer-jobs'
 import Home from '@/pages/home'
@@ -17,6 +21,7 @@ import ResumePreview from '@/pages/resume-preview'
 
 function App() {
   useSession()
+  useResetCacheOnUserChange()
 
   return (
     <>
@@ -29,6 +34,9 @@ function App() {
         <Route path="/resume/preview" element={<ResumePreview />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/jobs/:id" element={<JobDetail />} />
+        <Route path="/companies" element={<Companies />} />
+        <Route path="/companies/:id" element={<CompanyPage />} />
+        <Route path="/employer/company" element={<EmployerCompany />} />
         <Route path="/employer/jobs" element={<EmployerJobs />} />
         <Route path="/applications" element={<Applications />} />
         <Route path="/employer/jobs/:id/applicants" element={<EmployerApplicants />} />

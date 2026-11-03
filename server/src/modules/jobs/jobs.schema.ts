@@ -3,6 +3,11 @@ import { z } from 'zod'
 const years = z.number().min(0).max(60).transform((n) => Math.round(n * 100) / 100)
 const termId = (kind: string) => z.string().regex(new RegExp(`^${kind}:[a-z0-9-]+$`), `Invalid ${kind}`)
 
+export const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract', 'internship'] as const
+
+/** Free-text bullet list; defaults to empty so versions saved before these fields still parse. */
+const textList = z.array(z.string().trim().min(1, 'Cannot be blank').max(300)).max(20).default([])
+
 export const jobContentSchema = z
   .object({
     title: z.string().trim().min(1, 'Title is required').max(120),
@@ -28,6 +33,21 @@ export const jobContentSchema = z
     workMode: z.enum(['onsite', 'hybrid', 'remote']).optional(),
     salaryMin: z.number().int().min(0).max(100_000_000).optional(),
     salaryMax: z.number().int().min(0).max(100_000_000).optional(),
+    // Display-only fields below: never read by the matching engine.
+    employmentType: z.enum(EMPLOYMENT_TYPES).optional(),
+    applicationDeadline: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+      .refine((d) => {
+        const parsed = new Date(`${d}T00:00:00Z`)
+        // An out-of-range month or day is an Invalid Date, and toISOString() would throw on it.
+        return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(d)
+      }, 'Invalid date')
+      .optional(),
+    responsibilities: textList,
+    qualifications: textList,
+    perks: textList,
+    otherDetails: textList,
   })
   .refine((j) => j.salaryMin === undefined || j.salaryMax === undefined || j.salaryMin <= j.salaryMax, {
     path: ['salaryMax'],
@@ -44,7 +64,9 @@ export const jobIdParamSchema = z.object({ id: z.uuid() })
 export const jobListQuerySchema = z.object({
   q: z.string().trim().max(80).default(''),
   workMode: z.enum(['onsite', 'hybrid', 'remote']).optional(),
+  employmentType: z.enum(EMPLOYMENT_TYPES).optional(),
   domainId: termId('domain').optional(),
+  companyId: z.uuid().optional(),
   cursor: z.uuid().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })

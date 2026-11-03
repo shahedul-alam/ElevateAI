@@ -10,6 +10,9 @@ import { apiRouter } from './routes'
 export function createApp() {
   const app = express()
 
+  // Behind a proxy, req.ip would be the proxy for everyone: all clients would share one rate-limit bucket.
+  if (env.TRUST_PROXY > 0) app.set('trust proxy', env.TRUST_PROXY)
+
   app.use(helmet())
   app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }))
   // Better Auth must be mounted before express.json(): body parsers consume the request stream.

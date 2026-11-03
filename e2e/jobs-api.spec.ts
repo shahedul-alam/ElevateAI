@@ -9,6 +9,7 @@ import {
   uniqueTitle,
   type JobDto,
 } from './support/jobs'
+import { getGap, newCandidate, PROFILE_A, publishScoredJob, SCORE_A } from './support/matching'
 
 const MISSING_ID = '00000000-0000-4000-8000-000000000000'
 
@@ -259,5 +260,176 @@ test.describe('public list filters', () => {
     expect(cursor).toBeNull()
     expect(seen).toHaveLength(3)
     expect([...seen].sort()).toEqual(created.map((j) => j.id).sort())
+  })
+})
+
+test.describe('job post details (API)', () => {
+  test.beforeEach(async ({ request }) => {
+    await registerUser(request, { role: 'employer' })
+  })
+
+  test('saves and reads employment type, deadline and the four lists', async ({ request }) => {
+    const job = await createJobApi(request, {
+      employmentType: 'contract',
+      applicationDeadline: '2027-03-15',
+      responsibilities: ['Own checkout', 'Review code'],
+      qualifications: ['Payments experience'],
+      perks: ['25 days leave', 'Equipment budget'],
+      otherDetails: ['Visa support'],
+    })
+
+    const own = await request.get(`/api/employer/jobs/${job.id}`)
+    const content = ((await own.json()).job as JobDto).content
+    expect(content.employmentType).toBe('contract')
+    expect(content.applicationDeadline).toBe('2027-03-15')
+    expect(content.responsibilities).toEqual(['Own checkout', 'Review code'])
+    expect(content.qualifications).toEqual(['Payments experience'])
+    expect(content.perks).toEqual(['25 days leave', 'Equipment budget'])
+    expect(content.otherDetails).toEqual(['Visa support'])
+
+    // Also visible publicly once published.
+    await jobAction(request, job.id, 'publish')
+    const pub = await request.get(`/api/jobs/${job.id}`)
+    expect((await pub.json()).job.content.perks).toEqual(['25 days leave', 'Equipment budget'])
+  })
+
+  test('accepts every employment type', async ({ request }) => {
+    for (const employmentType of ['full_time', 'part_time', 'contract', 'internship'] as const) {
+      const job = await createJobApi(request, { employmentType })
+      expect(job.content.employmentType).toBe(employmentType)
+    }
+  })
+
+  test('keeps list order, trims items and drops repeats', async ({ request }) => {
+    const job = await createJobApi(request, { responsibilities: ['  Beta ', 'Alpha', 'Beta', 'Gamma'] })
+    expect(job.content.responsibilities).toEqual(['Beta', 'Alpha', 'Gamma'])
+  })
+
+  test('allows empty lists', async ({ request }) => {
+    const job = await createJobApi(request, {
+      responsibilities: [],
+      qualifications: [],
+      perks: [],
+      otherDetails: [],
+    })
+    const own = await request.get(`/api/employer/jobs/${job.id}`)
+    const content = ((await own.json()).job as JobDto).content
+    expect(content.responsibilities).toEqual([])
+    expect(content.perks).toEqual([])
+    expect(content.employmentType).toBeUndefined()
+    expect(content.applicationDeadline).toBeUndefined()
+  })
+
+  test('reads content saved without the new fields back with empty lists', async ({ request }) => {
+    const res = await request.post('/api/employer/jobs', { data: jobContent() })
+    expect(res.status()).toBe(201)
+    const job = (await res.json()).job as JobDto
+    const own = await request.get(`/api/employer/jobs/${job.id}`)
+    const content = ((await own.json()).job as JobDto).content
+    for (const key of ['responsibilities', 'qualifications', 'perks', 'otherDetails'] as const) {
+      expect(content[key]).toEqual([])
+    }
+    expect(content.employmentType).toBeUndefined()
+  })
+
+  test('updates the new fields through PUT', async ({ request }) => {
+    const job = await createJobApi(request, { perks: ['Old perk'] })
+    const res = await request.put(`/api/employer/jobs/${job.id}`, {
+      data: { ...job.content, perks: ['New perk'], employmentType: 'internship', applicationDeadline: '2027-01-31' },
+    })
+    expect(res.status(), await res.text()).toBe(200)
+    const own = await request.get(`/api/employer/jobs/${job.id}`)
+    const content = ((await own.json()).job as JobDto).content
+    expect(content.perks).toEqual(['New perk'])
+    expect(content.employmentType).toBe('internship')
+    expect(content.applicationDeadline).toBe('2027-01-31')
+  })
+
+  test('rejects an unknown employment type with 400', async ({ request }) => {
+    const res = await request.post('/api/employer/jobs', {
+      data: { ...jobContent(), employmentType: 'weekends' },
+    })
+    expect(res.status()).toBe(400)
+  })
+
+  test('rejects a blank list item with 400', async ({ request }) => {
+    for (const key of ['responsibilities', 'qualifications', 'perks', 'otherDetails']) {
+      const res = await request.post('/api/employer/jobs', { data: { ...jobContent(), [key]: ['Fine', '   '] } })
+      expect(res.status(), key).toBe(400)
+    }
+  })
+
+  test('allows 20 list items but rejects 21 with 400', async ({ request }) => {
+    const items = (n: number) => Array.from({ length: n }, (_, i) => `Item ${i + 1}`)
+    expect((await request.post('/api/employer/jobs', { data: jobContent({ perks: items(20) }) })).status()).toBe(201)
+    expect((await request.post('/api/employer/jobs', { data: jobContent({ perks: items(21) }) })).status()).toBe(400)
+  })
+
+  test('rejects an over-long list item with 400', async ({ request }) => {
+    const res = await request.post('/api/employer/jobs', { data: jobContent({ perks: ['x'.repeat(301)] }) })
+    expect(res.status()).toBe(400)
+  })
+
+  test('rejects impossible or badly formatted deadlines with 400', async ({ request }) => {
+    for (const applicationDeadline of ['2026-02-31', '2026-13-01', '2026-2-3', 'tomorrow']) {
+      const res = await request.post('/api/employer/jobs', { data: { ...jobContent(), applicationDeadline } })
+      expect(res.status(), applicationDeadline).toBe(400)
+    }
+  })
+
+  test('rejects invalid new fields on update with 400 and keeps the old values', async ({ request }) => {
+    const job = await createJobApi(request, { perks: ['Keep me'] })
+    const res = await request.put(`/api/employer/jobs/${job.id}`, {
+      data: { ...job.content, applicationDeadline: '2026-02-31' },
+    })
+    expect(res.status()).toBe(400)
+    const own = await request.get(`/api/employer/jobs/${job.id}`)
+    expect(((await own.json()).job as JobDto).content.perks).toEqual(['Keep me'])
+  })
+
+  test('filters the public list by employmentType', async ({ request }) => {
+    const token = uniqueTitle('Type')
+    const contract = await publishJobApi(request, { title: `${token} A`, employmentType: 'contract' })
+    const intern = await publishJobApi(request, { title: `${token} B`, employmentType: 'internship' })
+    const untyped = await publishJobApi(request, { title: `${token} C` })
+
+    const idsFor = async (employmentType?: string) => {
+      const res = await request.get('/api/jobs', { params: { q: token, ...(employmentType && { employmentType }) } })
+      expect(res.status()).toBe(200)
+      return ((await res.json()).jobs as { id: string }[]).map((j) => j.id).sort()
+    }
+
+    expect(await idsFor('contract')).toEqual([contract.id])
+    expect(await idsFor('internship')).toEqual([intern.id])
+    expect(await idsFor('part_time')).toEqual([])
+    expect(await idsFor()).toEqual([contract.id, intern.id, untyped.id].sort())
+  })
+
+  test('rejects an invalid employmentType filter with 400', async ({ request }) => {
+    expect((await request.get('/api/jobs', { params: { employmentType: 'weekends' } })).status()).toBe(400)
+  })
+
+  test('does not change the match score for the same candidate', async ({ request, playwright, baseURL }) => {
+    const plain = await publishScoredJob(request)
+    const detailed = await publishScoredJob(request, {
+      employmentType: 'part_time',
+      applicationDeadline: '2027-06-30',
+      responsibilities: ['Lead the team'],
+      qualifications: ['MBA'],
+      perks: ['Free lunch'],
+      otherDetails: ['Relocation help'],
+    })
+
+    const candidate = await newCandidate(playwright, baseURL, PROFILE_A)
+    expect((await getGap(candidate.ctx, plain.id)).score).toBe(SCORE_A)
+    expect((await getGap(candidate.ctx, detailed.id)).score).toBe(SCORE_A)
+
+    // Editing only display fields leaves the score alone too.
+    const res = await request.put(`/api/employer/jobs/${detailed.id}`, {
+      data: { ...detailed.content, perks: ['Free lunch', 'Gym'], responsibilities: [] },
+    })
+    expect(res.status(), await res.text()).toBe(200)
+    expect((await getGap(candidate.ctx, detailed.id)).score).toBe(SCORE_A)
+    await candidate.ctx.dispose()
   })
 })

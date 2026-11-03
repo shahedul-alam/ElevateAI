@@ -23,6 +23,7 @@ model User {
   accounts         Account[]
   candidateProfile CandidateProfile?
   jobs             Job[]
+  company          Company?
   applications     Application[]
 
   @@unique([email])
@@ -241,4 +242,51 @@ model RateLimit {
 
   @@unique([key])
   @@map("rateLimit")
+}
+
+// The public face of an employer. One per employer account. Text content is current information
+// (editable, not versioned, never scored). `verified` is set only by an admin.
+model Company {
+  id           String         @id @default(uuid())
+  ownerId      String         @unique
+  owner        User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  tagline      String         @default("")
+  about        String         @default("")
+  mission      String         @default("")
+  headquarters String         @default("")
+  size         String         @default("")
+  fundingStage String         @default("")
+  foundedYear  Int?
+  website      String         @default("")
+  links        Json           @default("{}")
+  culture      Json           @default("[]")
+  benefits     Json           @default("[]")
+  hubs         Json           @default("[]")
+  awards       Json           @default("[]")
+  domainId     String?
+  workPolicy   String?
+  verified     Boolean        @default(false)
+  images       CompanyImage[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([domainId])
+  @@map("company")
+}
+
+// Logo and cover bytes live in Postgres (small, capped). Access goes through company.images.ts so
+// object storage can replace it without touching callers.
+model CompanyImage {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kind        String
+  contentType String
+  data        Bytes
+  etag        String
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, kind])
+  @@map("companyImage")
 }
