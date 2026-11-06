@@ -44,6 +44,32 @@ Goal: a match score must be reproducible. If a candidate restores an earlier res
 - **Confirm before irreversible actions.** Applying (an application cannot be withdrawn) and closing a job (a closed job cannot be edited or reopened) ask first in an in-app modal (`ConfirmDialog`), never `window.confirm`.
 - **Per-user client cache.** The client clears all cached data when the signed-in user changes, so one user's data is never shown to the next person on the same tab.
 
+### 1c. Revision: AI features (planned, not built)
+
+AI assists with text and data entry. It never decides who is shown, ranked or rejected. This keeps the guarantee in 1a: the match score is the pure `matchEngine`, never an LLM or embedding output.
+
+**Features, in build order**
+
+| # | Feature | Who | What it does | Model |
+|---|---|---|---|---|
+| 1 | Resume import | Candidate | Upload a PDF or DOCX; the LLM extracts roles, education, skills, certifications into the `/resume` form. Skills map to approved catalog terms (`assertApprovedTerms`); terms that do not match go to `unmapped` for the candidate to confirm. Nothing is saved until the candidate reviews and presses Save, which makes a normal new `ProfileVersion`. | Sol |
+| 2 | Resume evaluator | Candidate | Fixed-rubric score 0-100 (skills relevance, impact, structure, clarity, completeness), strengths, weaknesses, keyword suggestions. Advice only: it is not the match score and is never shown to employers. Shares the extraction step with feature 1. | Sol |
+| 3 | Job post assistant | Employer | Paste a rough description; the AI drafts title, responsibilities, qualifications and suggests catalog skills with required/nice-to-have. Fills the job form only; the employer edits and saves as normal. | Luna |
+| 4 | Gap explanations | Candidate | A short written note on the gap view ("you are missing Docker and AWS, here is a path"). Input is the existing `getGap` result; the numbers are unchanged. | Luna |
+| 5 | Applicant summary | Employer | A short summary of the frozen resume snapshot, generated once at apply time and stored on the `Application`. | Luna |
+| 6 | Semantic search | Everyone | Embeddings (pgvector, HNSW) improve `/jobs` search and widen the recommendation candidate set. Retrieval only, never scored. | embedding model |
+
+**Not building:** LLM scoring or ranking of candidates (breaks reproducibility), AI auto-reject (bias and legal risk), and sending any candidate contact details or photo to a model.
+
+**Design rules**
+- Calls go through one `ai` module (`server/src/modules/ai/`): provider wrapper, `generateObject` with a Zod output schema per feature, per-call timeout and retry, token cap on input.
+- Resume and job text is delimited as untrusted data in the prompt. Output is schema-validated and never executed; catalog ids from the model are checked with `assertApprovedTerms` before use.
+- Cost control: per-user daily quota per feature, rate limit on the AI routes, results cached by content hash (the profile and job `contentHash` already exist), static rubric prompt placed first so it hits the cached-input price.
+- Quick calls (3, 4) run inline in the request. Features 1-2 are slow and use the BullMQ queue once Redis exists; until then run them inline with a long timeout and a clear loading state. Client polls for the result, as the notification bell does.
+- Only profile content goes to the model, never `CandidateProfile.contact`, the photo, employer notes or ratings.
+- Tests: LLM mocked behind the provider interface; golden set of about 10 sample resumes for the rubric; an e2e flag stubs the model.
+- Needs: an LLM API key in `server/.env` (validated in `config/env.ts`), and new tables only for the evaluator result and the stored applicant summary.
+
 ## 2. Architecture
 
 Monorepo (Bun workspaces):
@@ -59,7 +85,7 @@ e2e/            Playwright
 - Zod schemas in `packages/shared` validate API requests on the server and forms on the client (React Hook Form resolver). Prisma generates DB types from `schema.prisma`; Zod schemas stay the source of truth for API/form validation, and `jsonb` columns are parsed with the shared Zod schemas at the boundary.
 - Auth: Better Auth with the Prisma adapter, email+password and Google OAuth. Better Auth issues cookie sessions; JWT is only used if a stateless token is needed (e.g. the WebSocket handshake). Roles `candidate | employer | admin` live on the user row; the API enforces them via `requireRole()` middleware. Admin is seeded, never self-signup.
 - Because client (Vercel) and API (other host) are on different origins, configure cross-site cookies (`SameSite=None; Secure`) or put both behind one parent domain (recommended, e.g. `app.` and `api.example.com`) and set strict CORS to that origin.
-- AI: Vercel AI SDK `generateObject` with Zod output schemas for resume parsing/scoring, with a provider abstraction (Claude primary, OpenAI fallback) and per-call timeouts and retries.
+- AI: Vercel AI SDK `generateObject` with Zod output schemas, with a provider abstraction (Claude primary, OpenAI fallback unless 1c decides OpenAI first) and per-call timeouts and retries. Feature list, models and rules are in section 1c.
 
 ## 3. Data Model (PostgreSQL / Prisma)
 
@@ -154,3 +180,4 @@ Estimate ≈ 7–8 weeks for one full-time developer using AI coding agents; pha
 2. Confirm that email + in-app alerts are the full scope of "messaging".
 3. Employers do not need approval to post jobs (MVP). Admins can grant a "Verified Employer" badge on a company page (built); admin suspension of users and jobs is not built. Consider an admin review queue for company images and names, a cache purge or takedown path for removed images once a CDN is used, and moving images to object storage.
 4. Define the Admin's MVP capabilities (assumed: view/suspend users and jobs only).
+5. AI provider: OpenAI first (GPT-6.1 Sol and GPT-6 Luna, see 1c) or Claude primary as in section 2. Also confirm the per-user quotas and that candidates agree to their resume text being sent to an LLM provider (privacy notice).
