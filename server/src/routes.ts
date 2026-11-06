@@ -6,6 +6,7 @@ import { healthRouter } from './modules/health/health.routes'
 import { jobsRouter } from './modules/jobs/jobs.routes'
 import { matchingRouter } from './modules/matching/matching.routes'
 import { companyRouter } from './modules/company/company.routes'
+import { notificationsRouter } from './modules/notifications/notifications.routes'
 import { userRouter } from './modules/user/user.routes'
 
 export const apiRouter = Router()
@@ -19,3 +20,4 @@ apiRouter.use(matchingRouter)
 apiRouter.use(jobsRouter)
 apiRouter.use(applicationsRouter)
 apiRouter.use(companyRouter)
+apiRouter.use(notificationsRouter)

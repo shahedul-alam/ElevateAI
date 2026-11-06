@@ -25,6 +25,7 @@ model User {
   jobs             Job[]
   company          Company?
   applications     Application[]
+  notifications    Notification[]
 
   @@unique([email])
   @@map("user")
@@ -226,6 +227,7 @@ model Application {
   photo            PhotoBlob?                 @relation(fields: [photoId], references: [id], onDelete: Restrict)
   history          ApplicationStatusHistory[]
   notes            ApplicationNote[]
+  notifications    Notification[]
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
 
@@ -327,4 +329,29 @@ model CompanyImage {
 
   @@unique([companyId, kind])
   @@map("companyImage")
+}
+
+enum NotificationType {
+  application_status
+  application_received
+}
+
+// In-app inbox entry. Title, body and link are written when the event happens (the link is always an
+// internal path built by the server), so an entry stays readable if the job is later edited.
+model Notification {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          NotificationType
+  applicationId String?
+  application   Application?     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  link          String
+  readAt        DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@map("notification")
 }

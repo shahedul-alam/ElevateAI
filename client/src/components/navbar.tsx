@@ -23,6 +23,7 @@ import {
 import { signOutRequest } from '@/features/auth/auth.api'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { SESSION_KEY } from '@/features/auth/use-session'
+import { NotificationBell } from '@/features/notifications/notification-bell'
 import { cn } from '@/lib/utils'
 
 // /dashboard is a placeholder: that route does not exist yet.
@@ -91,6 +92,7 @@ export function Navbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          {user && <NotificationBell />}
           <ModeToggle />
           {status === 'loading' ? (
             <div

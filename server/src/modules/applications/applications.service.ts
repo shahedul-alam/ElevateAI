@@ -1,6 +1,8 @@
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import type { ApplicationStatus, Prisma } from '../../../generated/prisma/client'
+import { createNotification } from '../notifications/notifications.service'
+import { receivedMessage, statusMessage } from '../notifications/notifications.messages'
 import { termNamesFor } from '../catalog/catalog.service'
 import { applicationPhotoUrl } from '../candidate-profile/candidate-photo'
 import { companyRefSelect, toCompanyRef } from '../company/company.ref'
@@ -40,6 +42,7 @@ export async function applyToJob(candidateId: string, jobId: string) {
   if (job.status === 'closed') throw new HttpError(409, 'This job is closed')
 
   const profile = await loadCurrentProfile(candidateId)
+  const candidate = await prisma.user.findUnique({ where: { id: candidateId }, select: { name: true } })
   // Frozen with the application: later photo changes do not reach employers who already have it.
   const photo = await prisma.candidateProfile.findUnique({ where: { userId: candidateId }, select: { photoId: true } })
   const existing = await prisma.application.findUnique({
@@ -66,6 +69,13 @@ export async function applyToJob(candidateId: string, jobId: string) {
       })
       await tx.applicationStatusHistory.create({
         data: { applicationId: application.id, toStatus: 'applied' },
+      })
+      await createNotification(tx, {
+        userId: job.employerId,
+        type: 'application_received',
+        applicationId: application.id,
+        ...receivedMessage(candidate?.name ?? 'A candidate', parseStoredJob(job.currentVersion!.content).title, match.score),
+        link: `/employer/hiring?job=${jobId}`,
       })
       return {
         id: application.id,
@@ -298,7 +308,12 @@ export async function setRating(employerId: string, id: string, rating: number |
 export async function changeApplicationStatus(employerId: string, id: string, to: ApplicationStatus) {
   const application = await prisma.application.findFirst({
     where: { id, job: { employerId } },
-    select: { status: true },
+    select: {
+      status: true,
+      candidateId: true,
+      jobVersion: { select: { content: true } },
+      job: { select: { employer: { select: { name: true, company: { select: { name: true } } } } } },
+    },
   })
   if (!application) throw new HttpError(404, 'Application not found')
   if (!NEXT[application.status].includes(to)) {
@@ -314,6 +329,15 @@ export async function changeApplicationStatus(employerId: string, id: string, to
     if (count === 0) throw new HttpError(409, 'This application was just updated. Reload and try again')
     await tx.applicationStatusHistory.create({
       data: { applicationId: id, fromStatus: application.status, toStatus: to },
+    })
+    // Same transaction as the move, and the status guard above means once per real change.
+    const employer = application.job.employer
+    await createNotification(tx, {
+      userId: application.candidateId,
+      type: 'application_status',
+      applicationId: id,
+      ...statusMessage(to, parseStoredJob(application.jobVersion.content).title, employer.company?.name ?? employer.name),
+      link: '/applications',
     })
     return { id, status: to }
   })
