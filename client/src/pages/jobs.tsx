@@ -4,13 +4,10 @@ import { Link } from 'react-router'
 
 import { NativeSelect } from '@/components/native-select'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { useAuthStore } from '@/features/auth/auth.store'
-import { CompanyLogo } from '@/features/company/company-logo'
-import { CompanyLink } from '@/features/company/company-profile-view'
 import { searchCatalog } from '@/features/catalog/catalog.api'
-import { formatSalary } from '@/features/jobs/format'
+import { JobCard } from '@/features/jobs/job-card'
 import type { JobListFilters } from '@/features/jobs/jobs.api'
 import { EMPLOYMENT_LABELS, EMPLOYMENT_TYPES } from '@/features/jobs/jobs.schema'
 import { usePublicJobs } from '@/features/jobs/use-jobs'
@@ -102,49 +99,11 @@ export default function Jobs() {
         <p className="text-muted-foreground">No jobs match your search.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {cards.map((job) => {
-            const salary = formatSalary(job.salaryMin, job.salaryMax)
-            const meta = [
-              job.location,
-              job.workMode && job.workMode[0]!.toUpperCase() + job.workMode.slice(1),
-              job.employmentType && EMPLOYMENT_LABELS[job.employmentType],
-              job.domainId && names[job.domainId],
-              salary,
-            ].filter(Boolean)
-            return (
-              <li key={job.id}>
-                {/* The title link stretches over the whole card; the company link sits above it. */}
-                <Card className="relative transition-colors focus-within:ring-2 focus-within:ring-ring/50 hover:bg-accent/40">
-                  <CardContent className="flex gap-3">
-                    {job.company && (
-                      <CompanyLogo id={job.company.id} name={job.company.name} logoUrl={job.company.logoUrl} className="size-11" />
-                    )}
-                    <div className="flex min-w-0 flex-col gap-2">
-                      <Link
-                        to={`/jobs/${job.id}`}
-                        className="font-medium outline-none after:absolute after:inset-0 after:content-['']"
-                      >
-                        {job.title}
-                      </Link>
-                      <p className="text-sm text-muted-foreground">
-                        <CompanyLink company={job.company} fallbackName={job.employerName} />
-                        {meta.length > 0 && ` · ${meta.join(' · ')}`}
-                      </p>
-                      {job.skillIds.length > 0 && (
-                        <ul className="flex flex-wrap gap-2">
-                          {job.skillIds.map((id) => (
-                            <li key={id} className="rounded-full border px-2.5 py-0.5 text-xs">
-                              {names[id] ?? id}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </li>
-            )
-          })}
+          {cards.map((job) => (
+            <li key={job.id}>
+              <JobCard job={job} names={names} />
+            </li>
+          ))}
         </ul>
       )}
 
@@ -195,7 +154,7 @@ function Recommended({ query }: { query: ReturnType<typeof useRecommended> }) {
               to see jobs ranked by how well you match.
             </p>
           ) : (
-            <RecommendedList jobs={query.data.jobs} />
+            <RecommendedList data={query.data} />
           )}
         </div>
       )}
@@ -203,37 +162,16 @@ function Recommended({ query }: { query: ReturnType<typeof useRecommended> }) {
   )
 }
 
-function RecommendedList({ jobs }: { jobs: NonNullable<ReturnType<typeof useRecommended>['data']>['jobs'] }) {
+function RecommendedList({ data }: { data: NonNullable<ReturnType<typeof useRecommended>['data']> }) {
   return (
     <section aria-labelledby="recommended-heading">
       <h2 id="recommended-heading" className="sr-only">
         Recommended for you
       </h2>
       <ul className="flex flex-col gap-3">
-        {jobs.map((job) => (
+        {data.jobs.map((job) => (
           <li key={job.id}>
-            <Card className="relative transition-colors focus-within:ring-2 focus-within:ring-ring/50 hover:bg-accent/40">
-                <CardContent className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <Link
-                      to={`/jobs/${job.id}`}
-                      className="font-medium outline-none after:absolute after:inset-0 after:content-['']"
-                    >
-                      {job.title}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      <CompanyLink company={job.company} fallbackName={job.employerName} />
-                      {[job.location, formatSalary(job.salaryMin, job.salaryMax)]
-                        .filter(Boolean)
-                        .map((m) => ` · ${m}`)
-                        .join('')}
-                    </p>
-                  </div>
-                  <p className="text-lg font-semibold tabular-nums" aria-label={`Match score ${job.score} percent`}>
-                    {job.score}%
-                  </p>
-                </CardContent>
-            </Card>
+            <JobCard job={job} names={data.termNames} score={job.score} />
           </li>
         ))}
       </ul>

@@ -12,7 +12,7 @@ export const applyToJobHandler: RequestHandler = async (req, res) => {
 }
 
 export const listMyApplications: RequestHandler = async (req, res) => {
-  res.json({ applications: await listCandidateApplications(req.auth!.user.id) })
+  res.json(await listCandidateApplications(req.auth!.user.id))
 }
 
 export const listJobApplicants: RequestHandler = async (req, res) => {

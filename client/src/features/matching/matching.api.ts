@@ -1,5 +1,6 @@
 import { api } from '@/lib/api'
 import type { WorkMode } from '@/features/profile/profile.schema'
+import type { EmploymentType } from '@/features/jobs/jobs.schema'
 import type { CompanyRef } from '@/features/company/company.schema'
 
 export type DimensionKey =
@@ -37,9 +38,11 @@ export type RecommendedJob = {
   title: string
   location?: string
   workMode?: WorkMode
+  employmentType?: EmploymentType
   salaryMin?: number
   salaryMax?: number
   domainId?: string
+  skillIds: string[]
   score: number
   eligibility: Breakdown['eligibility']
 }

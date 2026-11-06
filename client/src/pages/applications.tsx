@@ -1,8 +1,8 @@
 import { Link } from 'react-router'
 
 import { RequireRole } from '@/components/require-role'
-import { Card, CardContent } from '@/components/ui/card'
-import { STATUS_LABEL } from '@/features/applications/applications.api'
+import { STATUS_LABEL, STATUS_STYLE } from '@/features/applications/applications.api'
+import { JobCard } from '@/features/jobs/job-card'
 import { useMyApplications } from '@/features/applications/use-applications'
 
 export default function Applications() {
@@ -27,7 +27,7 @@ function ApplicationsPage() {
         <p className="text-sm text-muted-foreground">Loading...</p>
       ) : applications.isError ? (
         <p className="text-sm text-destructive">Could not load your applications.</p>
-      ) : applications.data.length === 0 ? (
+      ) : applications.data.applications.length === 0 ? (
         <p className="text-muted-foreground">
           You have not applied to any jobs yet.{' '}
           <Link to="/jobs" className="underline">
@@ -36,28 +36,20 @@ function ApplicationsPage() {
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {applications.data.map((a) => (
+          {applications.data.applications.map((a) => (
             <li key={a.id}>
-              <Card>
-                <CardContent className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    {a.jobStatus === 'active' ? (
-                      <Link to={`/jobs/${a.jobId}`} className="truncate font-medium underline-offset-2 hover:underline">
-                        {a.title}
-                      </Link>
-                    ) : (
-                      <p className="truncate font-medium">{a.title}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {STATUS_LABEL[a.status]} · applied {new Date(a.createdAt).toLocaleDateString()}
-                      {a.jobStatus === 'closed' && ' · job closed'}
-                    </p>
-                  </div>
-                  <p className="text-lg font-semibold tabular-nums" aria-label={`Match score ${a.matchScore} percent`}>
-                    {a.matchScore}%
-                  </p>
-                </CardContent>
-              </Card>
+              <JobCard
+                job={{ ...a, id: a.jobId }}
+                names={applications.data.termNames}
+                score={a.matchScore}
+                linkable={a.jobStatus === 'active'}
+                badge={
+                  <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[a.status]}`}>
+                    {STATUS_LABEL[a.status]}
+                  </span>
+                }
+                footer={`Applied ${new Date(a.createdAt).toLocaleDateString()}${a.jobStatus === 'closed' ? ' · job closed' : ''}`}
+              />
             </li>
           ))}
         </ul>

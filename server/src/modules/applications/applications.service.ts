@@ -2,6 +2,8 @@ import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import type { ApplicationStatus } from '../../../generated/prisma/client'
 import { termNamesFor } from '../catalog/catalog.service'
+import { companyRefSelect, toCompanyRef } from '../company/company.ref'
+import { topSkills } from '../jobs/jobs.service'
 import {
   parseStoredContact,
   parseStoredProfile,
@@ -78,19 +80,38 @@ export async function applyToJob(candidateId: string, jobId: string) {
 export async function listCandidateApplications(candidateId: string) {
   const rows = await prisma.application.findMany({
     where: { candidateId },
-    include: { job: { select: { id: true, status: true } }, jobVersion: true },
+    include: {
+      job: { select: { id: true, status: true, employer: { select: { name: true, company: { select: companyRefSelect } } } } },
+      jobVersion: true,
+    },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
-  return rows.map((a) => ({
-    id: a.id,
-    jobId: a.job.id,
-    jobStatus: a.job.status,
-    title: parseStoredJob(a.jobVersion.content).title,
-    status: a.status,
-    matchScore: a.matchScore,
-    engineVersion: a.engineVersion,
-    createdAt: a.createdAt,
-  }))
+  const cards = rows.map((a) => ({ a, content: parseStoredJob(a.jobVersion.content) }))
+  const termNames = await termNamesFor(
+    cards.flatMap(({ content }) => [...topSkills(content), ...(content.domainId ? [content.domainId] : [])]),
+  )
+  return {
+    termNames,
+    applications: cards.map(({ a, content }) => ({
+      id: a.id,
+      jobId: a.job.id,
+      jobStatus: a.job.status,
+      employerName: a.job.employer.company?.name ?? a.job.employer.name,
+      company: a.job.employer.company ? toCompanyRef(a.job.employer.company) : null,
+      title: content.title,
+      location: content.location,
+      workMode: content.workMode,
+      employmentType: content.employmentType,
+      salaryMin: content.salaryMin,
+      salaryMax: content.salaryMax,
+      domainId: content.domainId,
+      skillIds: topSkills(content),
+      status: a.status,
+      matchScore: a.matchScore,
+      engineVersion: a.engineVersion,
+      createdAt: a.createdAt,
+    })),
+  }
 }
 
 /** Contact details as shown to an employer; empty fields and links are left out. */

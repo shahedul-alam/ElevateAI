@@ -24,6 +24,10 @@ const jobTermIds = (c: JobInput) => [
   ...c.certIds,
 ]
 
+/** Up to five skills for a job card, required ones first. */
+export const topSkills = (c: JobInput) =>
+  [...c.skills].sort((a, b) => Number(b.required) - Number(a.required)).slice(0, 5).map((s) => s.termId)
+
 async function toDto(job: JobRow, version: VersionRow) {
   const content = contentOf(version)
   return {
@@ -166,9 +170,6 @@ export async function listPublicJobs(query: JobListQuery) {
   const page = rows.slice(0, query.limit)
 
   const cards = page.flatMap((j) => (j.currentVersion ? [{ job: j, content: contentOf(j.currentVersion) }] : []))
-  // Show up to five skills per card, required ones first.
-  const topSkills = (c: JobInput) =>
-    [...c.skills].sort((a, b) => Number(b.required) - Number(a.required)).slice(0, 5).map((s) => s.termId)
   const termNames = await termNamesFor(
     cards.flatMap(({ content }) => [...topSkills(content), ...(content.domainId ? [content.domainId] : [])]),
   )

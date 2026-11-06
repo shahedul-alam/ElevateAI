@@ -3,6 +3,7 @@ import { HttpError } from '../../middleware/errors'
 import { termNamesFor } from '../catalog/catalog.service'
 import { companyRefSelect, toCompanyRef } from '../company/company.ref'
 import { parseStoredProfile, type ProfileInput } from '../candidate-profile/candidate-profile.schema'
+import { topSkills } from '../jobs/jobs.service'
 import { parseStoredJob, type JobInput } from '../jobs/jobs.schema'
 import { checkEligibility, matchEngine } from './matching.engine'
 import type { EligibilityResult, MatchResult } from './matching.types'
@@ -94,7 +95,7 @@ export async function recommendJobs(userId: string, limit: number) {
     .sort((a, b) => b.match.score - a.match.score || (a.job.id < b.job.id ? -1 : 1))
     .slice(0, limit)
 
-  const termNames = await termNamesFor(scored.flatMap((s) => (s.content.domainId ? [s.content.domainId] : [])))
+  const termNames = await termNamesFor(scored.flatMap((s) => [...topSkills(s.content), ...(s.content.domainId ? [s.content.domainId] : [])]))
   return {
     jobs: scored.map(({ job, content, match }) => ({
       id: job.id,
@@ -103,9 +104,11 @@ export async function recommendJobs(userId: string, limit: number) {
       title: content.title,
       location: content.location,
       workMode: content.workMode,
+      employmentType: content.employmentType,
       salaryMin: content.salaryMin,
       salaryMax: content.salaryMax,
       domainId: content.domainId,
+      skillIds: topSkills(content),
       score: match.score,
       eligibility: match.eligibility,
     })),
