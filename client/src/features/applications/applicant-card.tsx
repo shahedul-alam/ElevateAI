@@ -68,7 +68,7 @@ export function ApplicantCard({
             </p>
             {showJob && (
               <p className="text-xs">
-                <Link to={`/employer/jobs/${a.jobId}/applicants`} className="underline">
+                <Link to={`/employer/jobs/${a.jobId}/edit?tab=preview`} className="underline">
                   {a.jobTitle}
                 </Link>
               </p>
