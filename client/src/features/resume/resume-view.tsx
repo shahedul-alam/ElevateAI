@@ -22,26 +22,31 @@ export function ResumeSheet({ model }: { model: ResumeModel }) {
       aria-label="Resume"
       className="mx-auto w-full max-w-3xl rounded-lg bg-white p-6 text-sm leading-relaxed text-neutral-900 shadow-sm ring-1 ring-black/10 sm:p-10"
     >
-      <header className="mb-5">
-        <h1 className="text-2xl font-bold">{model.name}</h1>
-        {model.headline && <p className="text-base">{model.headline}</p>}
-        {model.contact.length > 0 && <p className="mt-1 text-neutral-700">{model.contact.join(' · ')}</p>}
-        {model.links.length > 0 && (
-          <ul className="mt-1 flex flex-wrap gap-x-4 text-neutral-700">
-            {model.links.map((l) => (
-              <li key={l.label}>
-                {l.label}:{' '}
-                <a
-                  href={safeHref(l.url) ?? undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="break-all underline"
-                >
-                  {l.url}
-                </a>
-              </li>
-            ))}
-          </ul>
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold">{model.name}</h1>
+          {model.headline && <p className="text-base">{model.headline}</p>}
+          {model.contact.length > 0 && <p className="mt-1 text-neutral-700">{model.contact.join(' · ')}</p>}
+          {model.links.length > 0 && (
+            <ul className="mt-1 flex flex-wrap gap-x-4 text-neutral-700">
+              {model.links.map((l) => (
+                <li key={l.label}>
+                  {l.label}:{' '}
+                  <a
+                    href={safeHref(l.url) ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all underline"
+                  >
+                    {l.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {model.photo && (
+          <img src={model.photo} alt={`Photo of ${model.name}`} className="size-24 shrink-0 rounded-lg object-cover" />
         )}
       </header>
 

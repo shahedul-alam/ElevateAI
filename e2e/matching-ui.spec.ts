@@ -59,13 +59,14 @@ test.describe('job match card', () => {
     await expect(applicant.getByRole('progressbar', { name: 'Skills' })).toBeVisible()
     await expect(applicant.getByText('Required skills: React')).toBeVisible()
 
-    await applicant.getByRole('button', { name: 'Start review' }).click()
-    await expect(applicant).toContainText('Under review')
-    await expect(applicant.getByRole('button', { name: 'Start review' })).toHaveCount(0)
-    await applicant.getByRole('button', { name: 'Hire' }).click()
-    await expect(applicant).toContainText('Hired')
-    await expect(applicant.getByRole('button', { name: 'Hire' })).toHaveCount(0)
-    await expect(applicant.getByRole('button', { name: 'Reject' })).toHaveCount(0)
+    const stage = applicant.getByLabel('Move to stage')
+    await stage.selectOption({ label: 'Under review' })
+    await expect(applicant.getByRole('option', { name: 'Under review (current)' })).toBeAttached()
+    await expect(applicant.getByText('Under review', { exact: true })).toBeVisible()
+    await stage.selectOption({ label: 'Hired' })
+    await employer.getByRole('alertdialog').getByRole('button', { name: 'Hire' }).click()
+    await expect(applicant.getByText('Hired', { exact: true })).toBeVisible()
+    await expect(applicant.getByLabel('Move to stage')).toHaveCount(0)
 
     // The candidate sees the new status, with the score unchanged.
     await page.goto('/applications')

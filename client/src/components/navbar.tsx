@@ -39,6 +39,7 @@ const employerLinks = [
   { to: '/jobs', label: 'Jobs' },
   { to: '/companies', label: 'Companies' },
   { to: '/employer/jobs', label: 'Your jobs' },
+  { to: '/employer/hiring', label: 'Hiring' },
   { to: '/employer/company', label: 'Company profile' },
   { to: '/dashboard', label: 'Dashboard' },
 ]

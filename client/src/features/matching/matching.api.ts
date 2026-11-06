@@ -11,7 +11,14 @@ export type DimensionKey =
   | 'leadership'
   | 'certifications'
 export type EligibilityStatus = 'ok' | 'mismatch' | 'unknown'
-export type ApplicationStatus = 'applied' | 'under_review' | 'rejected' | 'hired'
+export type ApplicationStatus =
+  | 'applied'
+  | 'under_review'
+  | 'technical_interview'
+  | 'culture_fit'
+  | 'offer'
+  | 'rejected'
+  | 'hired'
 
 export type Dimension = { key: DimensionKey; score: number; weight: number; applicable: boolean }
 

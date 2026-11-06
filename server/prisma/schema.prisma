@@ -128,6 +128,10 @@ model CandidateProfile {
   // information (a restore must not bring back an old phone number), editing it must not create a
   // version, and it can be corrected or removed. Never scored.
   contact          Json?
+  // Optional photo: like contact it is outside the versions and never scored. Applying copies the id
+  // onto the application, so the employer keeps seeing the photo that was submitted.
+  photoId          String?
+  photo            PhotoBlob?       @relation(fields: [photoId], references: [id], onDelete: Restrict)
   createdAt        DateTime         @default(now())
 
   @@map("candidateProfile")
@@ -190,6 +194,9 @@ model JobVersion {
 enum ApplicationStatus {
   applied
   under_review
+  technical_interview
+  culture_fit
+  offer
   rejected
   hired
 }
@@ -212,7 +219,13 @@ model Application {
   matchScore       Int
   matchBreakdown   Json
   engineVersion    String
+  // The employer's own 1-5 opinion; private, never scored, never shown to the candidate.
+  rating           Int?
+  // The candidate's photo as of applying (frozen: the blob is immutable). Employer-only.
+  photoId          String?
+  photo            PhotoBlob?                 @relation(fields: [photoId], references: [id], onDelete: Restrict)
   history          ApplicationStatusHistory[]
+  notes            ApplicationNote[]
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
 
@@ -232,6 +245,31 @@ model ApplicationStatusHistory {
 
   @@index([applicationId, createdAt])
   @@map("applicationStatusHistory")
+}
+
+// Immutable, content-addressed image (id = sha256 of the bytes). Profiles and applications point at it;
+// it is deleted once nothing does.
+model PhotoBlob {
+  id           String             @id
+  contentType  String
+  data         Bytes
+  createdAt    DateTime           @default(now())
+  profiles     CandidateProfile[]
+  applications Application[]
+
+  @@map("photoBlob")
+}
+
+// Private employer notes on an application. Never returned by a candidate endpoint.
+model ApplicationNote {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  body          String
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
+  @@map("applicationNote")
 }
 
 model RateLimit {

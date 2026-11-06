@@ -29,6 +29,7 @@ import {
   type ProfileFormValues,
 } from '@/features/profile/profile.schema'
 import { useProfile, useRestoreVersion, useSaveProfile, useVersions } from '@/features/profile/use-profile'
+import { PhotoCard } from '@/features/profile/photo-card'
 import { VersionHistory } from '@/features/profile/version-history'
 import { getApiError } from '@/lib/api'
 
@@ -47,6 +48,7 @@ function ResumeBuilder() {
   const profile = useProfile()
   const versions = useVersions()
   const accountEmail = useAuthStore((s) => s.user?.email ?? '')
+  const accountName = useAuthStore((s) => s.user?.name ?? '')
   const save = useSaveProfile()
   const restore = useRestoreVersion()
   const [params, setParams] = useSearchParams()
@@ -163,6 +165,8 @@ function ResumeBuilder() {
             </button>
           </p>
         )}
+
+        <PhotoCard name={accountName} />
 
         <Card>
           <CardHeader>

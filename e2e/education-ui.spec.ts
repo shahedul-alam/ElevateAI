@@ -130,7 +130,9 @@ test.describe('education requirement end to end', () => {
     await expect(applicant.getByText('Summary visible to employers')).toBeVisible()
     await expect(applicant.getByText('Widgets Inc')).toBeVisible()
     await expect(applicant.getByText('Shipped the checkout redesign.')).toBeVisible()
-    await expect(applicant.getByText('Bachelor · Design · Art School · 2015 - 2019')).toBeVisible()
+    // The degree and the institution/period sit on two lines of the education entry.
+    await expect(applicant.getByText('Bachelor · Design', { exact: true })).toBeVisible()
+    await expect(applicant.getByText('Art School · 2015 - 2019', { exact: true })).toBeVisible()
     await expect(applicant.getByText('Edited later')).toHaveCount(0)
     await expect(applicant.getByText('Physics')).toHaveCount(0)
 

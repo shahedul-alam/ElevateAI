@@ -1,7 +1,8 @@
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
-import type { ApplicationStatus } from '../../../generated/prisma/client'
+import type { ApplicationStatus, Prisma } from '../../../generated/prisma/client'
 import { termNamesFor } from '../catalog/catalog.service'
+import { applicationPhotoUrl } from '../candidate-profile/candidate-photo'
 import { companyRefSelect, toCompanyRef } from '../company/company.ref'
 import { topSkills } from '../jobs/jobs.service'
 import {
@@ -18,15 +19,15 @@ import {
   toBreakdown,
   type Breakdown,
 } from '../matching/matching.service'
-import type { ApplicantsQuery } from './applications.schema'
+import { PIPELINE, type ApplicantsQuery, type EmployerApplicationsQuery } from './applications.schema'
 
-// Employers move an application forward only; hired and rejected are final.
-const NEXT: Record<ApplicationStatus, ApplicationStatus[]> = {
-  applied: ['under_review', 'rejected'],
-  under_review: ['rejected', 'hired'],
-  rejected: [],
-  hired: [],
-}
+type ApplicantRow = Prisma.ApplicationGetPayload<{ include: typeof applicantInclude }>
+
+// Employers move an application forward only (a stage may be skipped) or reject it; hired and rejected are final.
+const NEXT = Object.fromEntries([
+  ...PIPELINE.map((s, i) => [s, s === 'hired' ? [] : [...PIPELINE.slice(i + 1), 'rejected']]),
+  ['rejected', []],
+]) as Record<ApplicationStatus, ApplicationStatus[]>
 
 const isUniqueViolation = (err: unknown) => (err as { code?: string })?.code === 'P2002'
 
@@ -39,6 +40,8 @@ export async function applyToJob(candidateId: string, jobId: string) {
   if (job.status === 'closed') throw new HttpError(409, 'This job is closed')
 
   const profile = await loadCurrentProfile(candidateId)
+  // Frozen with the application: later photo changes do not reach employers who already have it.
+  const photo = await prisma.candidateProfile.findUnique({ where: { userId: candidateId }, select: { photoId: true } })
   const existing = await prisma.application.findUnique({
     where: { jobId_candidateId: { jobId, candidateId } },
     select: { id: true },
@@ -55,6 +58,7 @@ export async function applyToJob(candidateId: string, jobId: string) {
           candidateId,
           profileVersionId: profile.versionId,
           jobVersionId: job.currentVersion!.id,
+          photoId: photo?.photoId ?? null,
           matchScore: match.score,
           matchBreakdown: toBreakdown(match),
           engineVersion: match.engineVersion,
@@ -149,28 +153,18 @@ function resumeView(p: ProfileInput, names: Record<string, string>) {
   }
 }
 
-/** Applicants for one of the employer's jobs, best score first (earlier applicant, then id, break ties). */
-export async function listApplicants(employerId: string, jobId: string, query: ApplicantsQuery) {
-  const job = await prisma.job.findFirst({
-    where: { id: jobId, employerId },
-    select: { currentVersionId: true },
-  })
-  if (!job) throw new HttpError(404, 'Job not found')
+// Shared by both employer lists, so a per-job card and a company-wide card cannot drift.
+const applicantInclude = {
+  candidate: { select: { name: true, email: true, candidateProfile: { select: { contact: true } } } },
+  profileVersion: true,
+  jobVersion: { select: { content: true } },
+  job: { select: { currentVersionId: true } },
+  _count: { select: { notes: true } },
+} as const
 
-  const rows = await prisma.application.findMany({
-    where: { jobId },
-    include: {
-      candidate: {
-        select: { name: true, email: true, candidateProfile: { select: { contact: true } } },
-      },
-      profileVersion: true,
-    },
-    orderBy: [{ matchScore: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
-    take: query.limit + 1,
-    ...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
-  })
-  const page = rows.slice(0, query.limit)
+const applicantOrder = [{ matchScore: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }] as const
 
+async function presentApplicants(page: ApplicantRow[]) {
   const profiles = page.map((a) => parseStoredProfile(a.profileVersion.content))
   const names = await termNamesFor(
     profiles.flatMap((p) => [
@@ -183,11 +177,16 @@ export async function listApplicants(employerId: string, jobId: string, query: A
   // Live, not frozen: employers reach the candidate on their current details.
   const contacts = page.map((a) => parseStoredContact(a.candidate.candidateProfile?.contact))
 
-  const applicants = await Promise.all(
+  return Promise.all(
     page.map(async (a, i) => {
       const profile = profiles[i]!
       return {
         id: a.id,
+        jobId: a.jobId,
+        jobTitle: parseStoredJob(a.jobVersion.content).title,
+        rating: a.rating,
+        noteCount: a._count.notes,
+        photoUrl: applicationPhotoUrl(a.id, a.photoId),
         candidateName: a.candidate.name,
         candidateEmail: contacts[i]!.email || a.candidate.email,
         contact: contactView(contacts[i]!),
@@ -197,14 +196,103 @@ export async function listApplicants(employerId: string, jobId: string, query: A
         matchScore: a.matchScore,
         engineVersion: a.engineVersion,
         // The job was edited after this candidate applied, so the score reflects its earlier requirements.
-        scoredAgainstOlderVersion: a.jobVersionId !== job.currentVersionId,
+        scoredAgainstOlderVersion: a.jobVersionId !== a.job.currentVersionId,
         createdAt: a.createdAt,
         resume: resumeView(profile, names),
         breakdown: await nameBreakdown(a.matchBreakdown as Breakdown),
       }
     }),
   )
-  return { applicants, nextCursor: rows.length > query.limit ? (page[page.length - 1]?.id ?? null) : null }
+}
+
+const nextCursor = (rows: { id: string }[], limit: number) =>
+  rows.length > limit ? (rows[limit - 1]?.id ?? null) : null
+
+/** Applicants for one of the employer's jobs, best score first (earlier applicant, then id, break ties). */
+export async function listApplicants(employerId: string, jobId: string, query: ApplicantsQuery) {
+  const job = await prisma.job.findFirst({ where: { id: jobId, employerId }, select: { id: true } })
+  if (!job) throw new HttpError(404, 'Job not found')
+
+  const rows = await prisma.application.findMany({
+    where: { jobId },
+    include: applicantInclude,
+    orderBy: [...applicantOrder],
+    take: query.limit + 1,
+    ...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
+  })
+  return {
+    applicants: await presentApplicants(rows.slice(0, query.limit)),
+    nextCursor: nextCursor(rows, query.limit),
+  }
+}
+
+/** Applicants across all of the employer's jobs, with per-status counts for the current filters. */
+export async function listEmployerApplications(employerId: string, query: EmployerApplicationsQuery) {
+  const base: Prisma.ApplicationWhereInput = {
+    job: { employerId, ...(query.jobId && { id: query.jobId }) },
+    ...(query.q && { candidate: { name: { contains: query.q, mode: 'insensitive' } } }),
+    ...(query.minRating && { rating: { gte: query.minRating } }),
+  }
+  const [rows, grouped] = await Promise.all([
+    prisma.application.findMany({
+      where: { ...base, ...(query.status && { status: query.status }) },
+      include: applicantInclude,
+      orderBy: [...applicantOrder],
+      take: query.limit + 1,
+      ...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
+    }),
+    prisma.application.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
+  ])
+  const counts = Object.fromEntries([...PIPELINE, 'rejected'].map((s) => [s, 0])) as Record<ApplicationStatus, number>
+  for (const g of grouped) counts[g.status] = g._count._all
+  return {
+    applicants: await presentApplicants(rows.slice(0, query.limit)),
+    nextCursor: nextCursor(rows, query.limit),
+    counts,
+  }
+}
+
+/** Ownership check shared by the activity, note and rating endpoints. */
+async function ownedApplication(employerId: string, id: string) {
+  const application = await prisma.application.findFirst({ where: { id, job: { employerId } }, select: { id: true } })
+  if (!application) throw new HttpError(404, 'Application not found')
+}
+
+export async function getActivity(employerId: string, id: string) {
+  await ownedApplication(employerId, id)
+  const [history, notes] = await Promise.all([
+    prisma.applicationStatusHistory.findMany({
+      where: { applicationId: id },
+      select: { fromStatus: true, toStatus: true, createdAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    }),
+    prisma.applicationNote.findMany({
+      where: { applicationId: id },
+      select: { id: true, body: true, createdAt: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    }),
+  ])
+  return { history, notes }
+}
+
+export async function addNote(employerId: string, id: string, body: string) {
+  await ownedApplication(employerId, id)
+  return prisma.applicationNote.create({
+    data: { applicationId: id, body },
+    select: { id: true, body: true, createdAt: true },
+  })
+}
+
+export async function deleteNote(employerId: string, id: string, noteId: string) {
+  await ownedApplication(employerId, id)
+  const { count } = await prisma.applicationNote.deleteMany({ where: { id: noteId, applicationId: id } })
+  if (count === 0) throw new HttpError(404, 'Note not found')
+}
+
+export async function setRating(employerId: string, id: string, rating: number | null) {
+  await ownedApplication(employerId, id)
+  await prisma.application.update({ where: { id }, data: { rating } })
+  return { id, rating }
 }
 
 export async function changeApplicationStatus(employerId: string, id: string, to: ApplicationStatus) {

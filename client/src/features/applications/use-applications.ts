@@ -1,11 +1,18 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { useAuthStore } from '@/features/auth/auth.store'
 import { MATCH_KEY } from '@/features/matching/use-matching'
 import {
+  addNoteRequest,
   applyRequest,
   changeApplicationStatusRequest,
+  deleteNoteRequest,
+  fetchActivity,
   fetchApplicants,
+  fetchEmployerApplications,
   fetchMyApplications,
+  setRatingRequest,
+  type EmployerApplicationFilters,
 } from './applications.api'
 
 export const APPLICATIONS_KEY = ['applications'] as const
@@ -21,6 +28,40 @@ export const useApplicants = (jobId: string) =>
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     retry: false,
   })
+
+export const useEmployerApplications = (filters: EmployerApplicationFilters) => {
+  const userId = useAuthStore((s) => s.user?.id ?? null)
+  return useInfiniteQuery({
+    queryKey: [...APPLICATIONS_KEY, 'employer', userId, filters],
+    queryFn: ({ pageParam }) => fetchEmployerApplications(filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    retry: false,
+    // Keep the old list on screen while a filter change loads, so typing does not flash.
+    placeholderData: (prev) => prev,
+  })
+}
+
+export const useApplicationActivity = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: [...APPLICATIONS_KEY, 'activity', id],
+    queryFn: () => fetchActivity(id),
+    enabled,
+    retry: false,
+  })
+
+/** Notes and ratings change the list (note count, stars) and the open activity sheet. */
+function useApplicationMutation<T>(mutationFn: (input: T) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY }),
+  })
+}
+
+export const useAddNote = () => useApplicationMutation(addNoteRequest)
+export const useDeleteNote = () => useApplicationMutation(deleteNoteRequest)
+export const useSetRating = () => useApplicationMutation(setRatingRequest)
 
 export function useApply() {
   const queryClient = useQueryClient()

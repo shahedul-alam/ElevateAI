@@ -8,6 +8,7 @@ import Applications from '@/pages/applications'
 import CompanyPage from '@/pages/company'
 import Companies from '@/pages/companies'
 import EmployerApplicants from '@/pages/employer-applicants'
+import EmployerHiring from '@/pages/employer-hiring'
 import EmployerCompany from '@/pages/employer-company'
 import EmployerJobForm from '@/pages/employer-job-form'
 import EmployerJobs from '@/pages/employer-jobs'
@@ -40,6 +41,7 @@ function App() {
         <Route path="/employer/jobs" element={<EmployerJobs />} />
         <Route path="/applications" element={<Applications />} />
         <Route path="/employer/jobs/:id/applicants" element={<EmployerApplicants />} />
+        <Route path="/employer/hiring" element={<EmployerHiring />} />
         <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
         <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
       </Routes>

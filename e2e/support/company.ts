@@ -125,23 +125,7 @@ export async function closedJob(api: APIRequestContext) {
 
 // ---- image fixtures ----------------------------------------------------------------------------
 
-const PNG_1X1 = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-  'base64',
-)
-
-/** A tiny valid PNG. A different `variant` appends trailing bytes, giving a different content hash. */
-export const pngImage = (variant = 0) =>
-  variant === 0 ? PNG_1X1 : Buffer.concat([PNG_1X1, Buffer.from(`variant-${variant}`)])
-
-export const jpegImage = () => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32, 1)])
-
-export const webpImage = () =>
-  Buffer.concat([Buffer.from('RIFF', 'ascii'), Buffer.from([32, 0, 0, 0]), Buffer.from('WEBP', 'ascii'), Buffer.alloc(24)])
-
-/** PNG signature followed by padding up to exactly `size` bytes. */
-export const pngOfSize = (size: number) =>
-  Buffer.concat([PNG_1X1.subarray(0, 8), Buffer.alloc(size - 8)])
+export { jpegImage, pngImage, pngOfSize, webpImage } from './images'
 
 export const uploadImage = (
   api: APIRequestContext,

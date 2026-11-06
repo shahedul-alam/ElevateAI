@@ -331,9 +331,10 @@ test.describe('application status', () => {
 
   test('rejects invalid transitions with 409', async ({ playwright, baseURL }) => {
     const s = await setup(playwright, baseURL)
-    // applied -> hired skips review.
-    expect((await setStatus(s.employer, s.application.id, 'hired')).status()).toBe(409)
-    expect(await s.status()).toBe('applied')
+    // Stages can be skipped forward, but never walked back.
+    await setStatus(s.employer, s.application.id, 'offer')
+    expect((await setStatus(s.employer, s.application.id, 'under_review')).status()).toBe(409)
+    expect(await s.status()).toBe('offer')
 
     // rejected is final.
     await setStatus(s.employer, s.application.id, 'rejected')
