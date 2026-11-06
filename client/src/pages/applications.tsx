@@ -1,9 +1,23 @@
-import { Link } from 'react-router'
+import { useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 
+import { NativeSelect } from '@/components/native-select'
 import { RequireRole } from '@/components/require-role'
-import { STATUS_LABEL, STATUS_STYLE } from '@/features/applications/applications.api'
-import { JobCard } from '@/features/jobs/job-card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { PIPELINE, STATUS_LABEL, STATUS_STYLE } from '@/features/applications/applications.api'
+import {
+  DEFAULT_MY_FILTERS,
+  MY_SORTS,
+  MY_SORT_LABELS,
+  countMyByStatus,
+  filterMyApplications,
+  type MyApplicationFilters,
+  type MySort,
+} from '@/features/applications/my-application-filters'
 import { useMyApplications } from '@/features/applications/use-applications'
+import { oneOf } from '@/features/jobs/employer-job-filters'
+import { JobCard } from '@/features/jobs/job-card'
 
 export default function Applications() {
   return (
@@ -13,8 +27,37 @@ export default function Applications() {
   )
 }
 
+const STATUSES = ['all', ...PIPELINE, 'rejected'] as const
+
+const readFilters = (p: URLSearchParams): MyApplicationFilters => ({
+  q: p.get('q') ?? '',
+  status: oneOf(STATUSES, p.get('status'), DEFAULT_MY_FILTERS.status),
+  sort: oneOf(MY_SORTS, p.get('sort'), DEFAULT_MY_FILTERS.sort),
+})
+
 function ApplicationsPage() {
   const applications = useMyApplications()
+  const [params, setParams] = useSearchParams()
+  // Search text is local state (router updates are transitions and can drop typed characters); the URL mirrors it.
+  const [search, setSearch] = useState(params.get('q') ?? '')
+  const { status, sort } = readFilters(params)
+
+  const setFilters = (next: Partial<MyApplicationFilters>) => {
+    // Merge against the live URL so back-to-back changes do not overwrite each other.
+    const merged = { ...readFilters(new URLSearchParams(window.location.search)), ...next }
+    const query: Record<string, string> = {}
+    if (merged.q) query.q = merged.q
+    if (merged.status !== DEFAULT_MY_FILTERS.status) query.status = merged.status
+    if (merged.sort !== DEFAULT_MY_FILTERS.sort) query.sort = merged.sort
+    setParams(query, { replace: true })
+  }
+
+  const all = applications.data?.applications
+  const filtered = useMemo(
+    () => filterMyApplications(all ?? [], { q: search, status, sort }),
+    [all, search, status, sort],
+  )
+  const counts = countMyByStatus(all ?? [])
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
@@ -35,24 +78,86 @@ function ApplicationsPage() {
           </Link>
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {applications.data.applications.map((a) => (
-            <li key={a.id}>
-              <JobCard
-                job={{ ...a, id: a.jobId }}
-                names={applications.data.termNames}
-                score={a.matchScore}
-                linkable={a.jobStatus === 'active'}
-                badge={
-                  <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[a.status]}`}>
-                    {STATUS_LABEL[a.status]}
-                  </span>
-                }
-                footer={`Applied ${new Date(a.createdAt).toLocaleDateString()}${a.jobStatus === 'closed' ? ' · job closed' : ''}`}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="mb-4 grid gap-2 sm:grid-cols-[1fr_12rem]">
+            <Input
+              type="search"
+              aria-label="Search your applications"
+              placeholder="Search by job, company or location"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setFilters({ q: e.target.value })
+              }}
+            />
+            <NativeSelect
+              aria-label="Sort applications"
+              value={sort}
+              onChange={(e) => setFilters({ sort: e.target.value as MySort })}
+            >
+              {MY_SORTS.map((o) => (
+                <option key={o} value={o}>
+                  {MY_SORT_LABELS[o]}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+
+          <div role="group" aria-label="Filter by status" className="mb-4 flex flex-wrap gap-2">
+            {STATUSES.map((st) => (
+              <Button
+                key={st}
+                type="button"
+                size="sm"
+                variant={status === st ? 'default' : 'outline'}
+                aria-pressed={status === st}
+                onClick={() => setFilters({ status: st })}
+              >
+                {st === 'all' ? 'All' : STATUS_LABEL[st]} ({counts[st] ?? 0})
+              </Button>
+            ))}
+          </div>
+
+          <p role="status" aria-live="polite" className="sr-only">
+            {filtered.length} {filtered.length === 1 ? 'application' : 'applications'}
+          </p>
+
+          {filtered.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-6 text-center">
+              <p className="text-muted-foreground">No applications match your filters.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => {
+                  setSearch('')
+                  setParams({}, { replace: true })
+                }}
+              >
+                Clear filters
+              </Button>
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {filtered.map((a) => (
+                <li key={a.id}>
+                  <JobCard
+                    job={{ ...a, id: a.jobId }}
+                    names={applications.data.termNames}
+                    score={a.matchScore}
+                    linkable={a.jobStatus === 'active'}
+                    badge={
+                      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[a.status]}`}>
+                        {STATUS_LABEL[a.status]}
+                      </span>
+                    }
+                    footer={`Applied ${new Date(a.createdAt).toLocaleDateString()}${a.jobStatus === 'closed' ? ' · job closed' : ''}`}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </main>
   )
