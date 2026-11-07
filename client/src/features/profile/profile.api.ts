@@ -39,6 +39,22 @@ export async function uploadPhotoRequest(file: File) {
   return data.photoUrl
 }
 
+export const RESUME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]
+export const RESUME_MAX_BYTES = 5 * 1024 * 1024
+
+/** Reads a resume file with AI and returns content for the form. Nothing is saved. */
+export async function importResumeRequest(file: File) {
+  const { data } = await api.post<{ content: ProfileContent; termNames: Record<string, string> }>(
+    '/candidate/profile/import',
+    file,
+    { headers: { 'Content-Type': file.type }, timeout: 90_000 },
+  )
+  return data
+}
+
 export async function removePhotoRequest() {
   await api.delete('/candidate/profile/photo')
 }

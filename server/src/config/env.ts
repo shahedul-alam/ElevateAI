@@ -18,6 +18,9 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  // AI features (resume import). Without a key the AI routes answer 503.
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  AI_MODEL_EXTRACT: z.string().min(1).default('gpt-6.1-sol'),
   // Only used by `bun run db:seed-admin`.
   ADMIN_EMAIL: z.email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional(),

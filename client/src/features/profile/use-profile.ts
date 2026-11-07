@@ -6,6 +6,7 @@ import {
   fetchPhotoInfo,
   fetchProfile,
   fetchVersions,
+  importResumeRequest,
   removePhotoRequest,
   restoreVersionRequest,
   saveProfileRequest,
@@ -53,6 +54,9 @@ export function useUploadPhoto() {
     onSuccess: (photoUrl) => queryClient.setQueryData(PHOTO_KEY, photoUrl),
   })
 }
+
+// Nothing is cached or invalidated: the result only fills the form until the candidate saves.
+export const useImportResume = () => useMutation({ mutationFn: importResumeRequest })
 
 export function useRemovePhoto() {
   const queryClient = useQueryClient()

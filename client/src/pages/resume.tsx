@@ -29,6 +29,7 @@ import {
   type ProfileFormValues,
 } from '@/features/profile/profile.schema'
 import { useProfile, useRestoreVersion, useSaveProfile, useVersions } from '@/features/profile/use-profile'
+import { ImportCard } from '@/features/profile/import-card'
 import { PhotoCard } from '@/features/profile/photo-card'
 import { VersionHistory } from '@/features/profile/version-history'
 import { getApiError } from '@/lib/api'
@@ -82,6 +83,7 @@ function ResumeBuilder() {
   const roles = useFieldArray({ control, name: 'roles' })
   const education = useFieldArray({ control, name: 'education' })
   const certIds = useWatch({ control, name: 'certIds' })
+  const hasContent = skills.fields.length + roles.fields.length + education.fields.length + (certIds?.length ?? 0) > 0
 
   // Load the current version into the form, and reload it after a save/restore. When editing a copy
   // of an older version, load that once and then leave the form alone, so a background refetch
@@ -165,6 +167,25 @@ function ResumeBuilder() {
             </button>
           </p>
         )}
+
+        <ImportCard
+          hasContent={hasContent}
+          onImported={(content, termNames) => {
+            setPicked((n) => ({ ...n, ...termNames }))
+            const cur = getValues()
+            // Keep what a resume cannot settle: contact, leadership and job preferences.
+            reset(
+              {
+                ...toForm(content, cur.contact),
+                leadershipLevel: cur.leadershipLevel,
+                locationsText: cur.locationsText,
+                workModes: cur.workModes,
+                minSalary: cur.minSalary,
+              },
+              { keepDefaultValues: true },
+            )
+          }}
+        />
 
         <PhotoCard name={accountName} />
 
