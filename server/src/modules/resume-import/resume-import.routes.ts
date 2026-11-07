@@ -1,3 +1,4 @@
+import { requireAiConsent } from '../ai/ai-consent'
 import express, { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { env } from '../../config/env'
@@ -22,6 +23,7 @@ resumeImportRouter.post(
   '/candidate/profile/import',
   requireAuth,
   requireRole('candidate'),
+  requireAiConsent,
   limiter,
   express.raw({ type: RESUME_TYPES, limit: RESUME_LIMIT }),
   postImport,

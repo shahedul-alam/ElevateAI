@@ -1,6 +1,7 @@
 import { prisma } from '../../config/db'
 import { env } from '../../config/env'
 import { HttpError } from '../../middleware/errors'
+import { hasCurrentConsent } from '../ai/ai-consent'
 import { extractObject } from '../ai/ai.provider'
 import { parseStoredProfile } from '../candidate-profile/candidate-profile.schema'
 import { termNamesFor } from '../catalog/catalog.service'
@@ -26,9 +27,14 @@ export async function ensureSummary(applicationId: string) {
   try {
     const app = await prisma.application.findUnique({
       where: { id: applicationId },
-      select: { summary: true, profileVersion: { select: { content: true } } },
+      select: {
+        summary: true,
+        profileVersion: { select: { content: true } },
+        candidate: { select: { aiConsentAt: true, aiConsentVersion: true } },
+      },
     })
-    if (!app || app.summary !== null) return
+    // The candidate must have agreed to the AI privacy notice; the lazy path retries if they agree later.
+    if (!app || app.summary !== null || !hasCurrentConsent(app.candidate)) return
     const profile = parseStoredProfile(app.profileVersion.content)
     const names = await termNamesFor([
       ...profile.skills.map((s) => s.termId),

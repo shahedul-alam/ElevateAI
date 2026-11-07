@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { Navigate } from 'react-router'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link, Navigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { FieldError } from '@/components/field-error'
@@ -9,7 +10,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { changeEmailSchema, type ChangeEmailInput } from '@/features/auth/auth.schema'
-import { PENDING_EMAIL_KEY } from '@/features/auth/auth.api'
+import { PENDING_EMAIL_KEY, withdrawAiConsentRequest } from '@/features/auth/auth.api'
+import { SESSION_KEY } from '@/features/auth/use-session'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { useChangeEmail } from '@/features/auth/use-change-email'
 import { getApiError } from '@/lib/api'
@@ -48,7 +50,7 @@ export default function Account() {
   }
 
   return (
-    <main className="mx-auto flex max-w-md justify-center px-4 py-12">
+    <main className="mx-auto flex max-w-md flex-col items-center gap-6 px-4 py-12">
       <Card className="w-full">
         <CardHeader>
           <CardTitle>Change email</CardTitle>
@@ -79,6 +81,49 @@ export default function Account() {
           </form>
         )}
       </Card>
+
+      <AiConsentCard />
     </main>
+  )
+}
+
+/** Shows whether AI features may use the user's text, and lets them withdraw. */
+function AiConsentCard() {
+  const user = useAuthStore((s) => s.user)
+  const setUser = useAuthStore((s) => s.setUser)
+  const queryClient = useQueryClient()
+  const withdraw = useMutation({
+    mutationFn: withdrawAiConsentRequest,
+    onSuccess: () => {
+      if (user) setUser({ ...user, aiConsent: false })
+      void queryClient.invalidateQueries({ queryKey: SESSION_KEY })
+      toast.success('AI consent withdrawn')
+    },
+    onError: (err) => toast.error('Could not withdraw', { description: getApiError(err).message }),
+  })
+  if (!user) return null
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>AI features</CardTitle>
+        <CardDescription>
+          {user.aiConsent
+            ? 'You agreed to send the text you use with AI features to OpenAI. '
+            : 'You have not agreed yet. You will be asked the first time you use an AI feature. '}
+          <Link to="/privacy" className="underline">
+            Read the AI privacy notice
+          </Link>
+          .
+        </CardDescription>
+      </CardHeader>
+      {user.aiConsent && (
+        <CardFooter>
+          <Button type="button" variant="outline" disabled={withdraw.isPending} onClick={() => withdraw.mutate()}>
+            {withdraw.isPending ? 'Withdrawing...' : 'Withdraw consent'}
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
   )
 }

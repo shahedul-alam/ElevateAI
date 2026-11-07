@@ -1,3 +1,4 @@
+import { requireAiConsent } from '../ai/ai-consent'
 import { Router } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { env } from '../../config/env'
@@ -23,6 +24,7 @@ jobAssistantRouter.post(
   '/employer/jobs/ai-draft',
   requireAuth,
   requireRole('employer'),
+  requireAiConsent,
   limiter,
   validate(draftInputSchema),
   postDraft,

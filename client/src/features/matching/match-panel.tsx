@@ -133,6 +133,9 @@ export function MatchPanel({
                     That score stays fixed on your application even if you edit your resume later. An
                     application cannot be withdrawn.
                   </p>
+                  <p className="mt-2">
+                    If you agreed to AI features, an AI-written summary of your resume is shown to the employer.
+                  </p>
                 </>
               }
               confirmLabel="Submit application"

@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { useAiConsent } from '@/features/auth/use-ai-consent'
 import { getApiError } from '@/lib/api'
 import type { JobDraft } from './jobs.api'
 import { useDraftJob } from './use-jobs'
@@ -21,6 +23,7 @@ export function AiDraftCard({
   onDrafted: (result: JobDraft) => void
 }) {
   const draft = useDraftJob()
+  const { withAiConsent, retryOnConsentError, consentDialog } = useAiConsent()
   const [text, setText] = useState('')
   const [pending, setPending] = useState<JobDraft | null>(null)
   const ready = text.trim().length >= MIN && text.length <= MAX
@@ -35,19 +38,29 @@ export function AiDraftCard({
   }
 
   const run = () =>
-    draft.mutate(text, {
-      onSuccess: (result) => (hasContent ? setPending(result) : apply(result)),
-      onError: (err) => toast.error('Could not draft', { description: getApiError(err).message }),
-    })
+    withAiConsent(() =>
+      draft.mutate(text, {
+        onSuccess: (result) => (hasContent ? setPending(result) : apply(result)),
+        onError: (err) => {
+          if (!retryOnConsentError(err, run)) {
+            toast.error('Could not draft', { description: getApiError(err).message })
+          }
+        },
+      }),
+    )
 
   return (
     <Card>
+      {consentDialog}
       <CardHeader>
         <CardTitle>Draft with AI</CardTitle>
         <CardDescription>
           Paste a rough job description and AI fills the title, overview, lists and suggested skills. The text is sent
           to OpenAI. Years, degree, certifications, pay and location are left for you to set, and nothing is saved until
-          you press Save.
+          you press Save.{' '}
+          <Link to="/privacy" className="underline">
+            AI privacy notice
+          </Link>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

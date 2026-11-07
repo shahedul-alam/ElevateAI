@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router'
+import { Link, Route, Routes } from 'react-router'
 
 import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/sonner'
@@ -23,6 +23,7 @@ import ResetPassword from '@/pages/reset-password'
 import VerifyEmail from '@/pages/verify-email'
 import Resume from '@/pages/resume'
 import NotFound from '@/pages/not-found'
+import Privacy from '@/pages/privacy'
 import ResumePreview from '@/pages/resume-preview'
 
 function App() {
@@ -53,8 +54,14 @@ function App() {
         <Route path="/employer/hiring" element={<EmployerHiring />} />
         <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
         <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-muted-foreground">
+        <Link to="/privacy" className="underline">
+          AI privacy notice
+        </Link>
+      </footer>
       <Toaster richColors />
     </>
   )

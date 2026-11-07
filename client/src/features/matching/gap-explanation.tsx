@@ -1,6 +1,8 @@
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
+import { useAiConsent } from '@/features/auth/use-ai-consent'
 import { getApiError } from '@/lib/api'
 import { useExplainGap, useGapExplanation } from './use-matching'
 
@@ -8,16 +10,24 @@ import { useExplainGap, useGapExplanation } from './use-matching'
 export function GapExplanationSection({ jobId }: { jobId: string }) {
   const query = useGapExplanation(jobId, true)
   const explain = useExplainGap(jobId)
+  const { withAiConsent, retryOnConsentError, consentDialog } = useAiConsent()
   const data = query.data
   const explanation = data?.explanation
 
   const run = () =>
-    explain.mutate(undefined, {
-      onError: (err) => toast.error('Could not explain', { description: getApiError(err).message }),
-    })
+    withAiConsent(() =>
+      explain.mutate(undefined, {
+        onError: (err) => {
+          if (!retryOnConsentError(err, run)) {
+            toast.error('Could not explain', { description: getApiError(err).message })
+          }
+        },
+      }),
+    )
 
   return (
     <section aria-label="Gap explanation" className="flex flex-col gap-3 border-t pt-4">
+      {consentDialog}
       {explanation ? (
         <>
           <p className="text-sm">{explanation.summary}</p>
@@ -49,7 +59,10 @@ export function GapExplanationSection({ jobId }: { jobId: string }) {
           <p className="text-xs text-muted-foreground">
             {data?.remainingToday === 0
               ? 'You have used all of today’s explanations.'
-              : 'AI suggests how to close the gap. Your resume skills and this job’s requirements are sent to OpenAI. This can take up to a minute.'}
+              : 'AI suggests how to close the gap. Your resume skills and this job’s requirements are sent to OpenAI. This can take up to a minute.'}{' '}
+            <Link to="/privacy" className="underline">
+              Privacy
+            </Link>
           </p>
         </div>
       )}

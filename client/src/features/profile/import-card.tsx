@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAiConsent } from '@/features/auth/use-ai-consent'
 import { getApiError } from '@/lib/api'
 import { RESUME_MAX_BYTES, RESUME_TYPES } from './profile.api'
 import type { ProfileContent } from './profile.schema'
@@ -18,6 +20,7 @@ export function ImportCard({
   onImported: (content: ProfileContent, termNames: Record<string, string>) => void
 }) {
   const importResume = useImportResume()
+  const { withAiConsent, retryOnConsentError, consentDialog } = useAiConsent()
   const input = useRef<HTMLInputElement>(null)
   const [pending, setPending] = useState<File | null>(null)
 
@@ -31,7 +34,11 @@ export function ImportCard({
             (content.unmapped.length > 0 ? ` ${content.unmapped.length} item(s) were not in our catalog and are listed as other skills.` : ''),
         })
       },
-      onError: (err) => toast.error('Could not import', { description: getApiError(err).message }),
+      onError: (err) => {
+        if (!retryOnConsentError(err, () => run(file))) {
+          toast.error('Could not import', { description: getApiError(err).message })
+        }
+      },
     })
 
   const onPick = (file: File | undefined) => {
@@ -39,8 +46,7 @@ export function ImportCard({
     if (!file) return
     if (!RESUME_TYPES.includes(file.type)) return void toast.error('Use a PDF or DOCX file')
     if (file.size > RESUME_MAX_BYTES) return void toast.error(`The file must be under ${RESUME_MAX_BYTES / 1024 / 1024} MB`)
-    if (hasContent) setPending(file)
-    else run(file)
+    withAiConsent(() => (hasContent ? setPending(file) : run(file)))
   }
 
   return (
@@ -49,7 +55,10 @@ export function ImportCard({
         <CardTitle>Import from a resume</CardTitle>
         <CardDescription>
           Upload a PDF or DOCX and AI fills the form below. The file is sent to OpenAI to read it; contact details are
-          not imported. Nothing is saved until you press Save, and AI never affects your match score.
+          not imported. Nothing is saved until you press Save, and AI never affects your match score.{' '}
+          <Link to="/privacy" className="underline">
+            AI privacy notice
+          </Link>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap items-center gap-3">
@@ -69,6 +78,7 @@ export function ImportCard({
         </Button>
         <p className="text-xs text-muted-foreground">Up to 5 MB. This can take up to a minute.</p>
       </CardContent>
+      {consentDialog}
       <ConfirmDialog
         open={pending !== null}
         onOpenChange={(open) => !open && setPending(null)}

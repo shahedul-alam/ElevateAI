@@ -10,6 +10,15 @@ export async function registerRequest(input: RegisterInput) {
   return data
 }
 
+/** Records agreement to the AI privacy notice (sending text to OpenAI for the AI features). */
+export async function setAiConsentRequest() {
+  await api.post('/me/ai-consent')
+}
+
+export async function withdrawAiConsentRequest() {
+  await api.delete('/me/ai-consent')
+}
+
 export const PENDING_EMAIL_KEY = 'pendingEmail'
 
 const callback =(path: string) => `${window.location.origin}${path}`

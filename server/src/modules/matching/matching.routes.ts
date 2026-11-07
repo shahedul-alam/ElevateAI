@@ -1,3 +1,4 @@
+import { requireAiConsent } from '../ai/ai-consent'
 import { Router } from 'express'
 import { requireUuidParam, validateQuery } from '../../middleware/validate'
 import { requireAuth, requireRole } from '../auth/auth.middleware'
@@ -28,5 +29,6 @@ matchingRouter.post(
   requireUuidParam(),
   requireAuth,
   requireRole('candidate'),
+  requireAiConsent,
   postJobGapExplanation,
 )

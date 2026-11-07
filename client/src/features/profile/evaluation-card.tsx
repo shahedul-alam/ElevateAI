@@ -1,7 +1,9 @@
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAiConsent } from '@/features/auth/use-ai-consent'
 import { getApiError } from '@/lib/api'
 import { EVAL_DIMENSIONS } from './profile.api'
 import { useEvaluate, useEvaluation } from './use-profile'
@@ -10,21 +12,32 @@ import { useEvaluate, useEvaluation } from './use-profile'
 export function EvaluationCard({ hasUnsavedChanges }: { hasUnsavedChanges: boolean }) {
   const query = useEvaluation()
   const evaluate = useEvaluate()
+  const { withAiConsent, retryOnConsentError, consentDialog } = useAiConsent()
   const data = query.data
   const evaluation = data?.evaluation
 
   const run = () =>
-    evaluate.mutate(undefined, {
-      onError: (err) => toast.error('Could not evaluate', { description: getApiError(err).message }),
-    })
+    withAiConsent(() =>
+      evaluate.mutate(undefined, {
+        onError: (err) => {
+          if (!retryOnConsentError(err, run)) {
+            toast.error('Could not evaluate', { description: getApiError(err).message })
+          }
+        },
+      }),
+    )
 
   return (
     <Card>
+      {consentDialog}
       <CardHeader>
         <CardTitle>Resume review</CardTitle>
         <CardDescription>
           AI feedback on your last saved resume. Advice only: employers never see it and it does not change your match
-          score. Your resume text is sent to OpenAI to write it.
+          score. Your resume text is sent to OpenAI to write it.{' '}
+          <Link to="/privacy" className="underline">
+            AI privacy notice
+          </Link>
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
