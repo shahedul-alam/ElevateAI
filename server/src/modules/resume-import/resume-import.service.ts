@@ -1,9 +1,7 @@
 import mammoth from 'mammoth'
-import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import { extractObject } from '../ai/ai.provider'
-import { normalizeAlias } from '../catalog/catalog.normalize'
-import { termNamesFor } from '../catalog/catalog.service'
+import { lookupAliases, termNamesFor } from '../catalog/catalog.service'
 import { detectResumeType, PDF_MIME } from './resume-import.file'
 import { mapExtraction, type AliasLookup } from './resume-import.map'
 import { extractionSchema } from './resume-import.schema'
@@ -19,19 +17,11 @@ Rules:
 - education: degreeLevel 1 diploma/associate, 2 bachelor, 3 master, 4 doctorate.
 - certifications: certification names only.`
 
-async function buildLookup(names: { skill: string[]; certification: string[]; domain: string[] }): Promise<AliasLookup> {
-  const lookup: AliasLookup = { skill: new Map(), certification: new Map(), domain: new Map() }
-  for (const kind of ['skill', 'certification', 'domain'] as const) {
-    const keys = [...new Set(names[kind].map(normalizeAlias).filter(Boolean))]
-    if (keys.length === 0) continue
-    const rows = await prisma.catalogAlias.findMany({
-      where: { kind, alias: { in: keys }, term: { status: 'approved' } },
-      select: { alias: true, termId: true },
-    })
-    for (const r of rows) lookup[kind].set(r.alias, r.termId)
-  }
-  return lookup
-}
+const buildLookup = async (names: { skill: string[]; certification: string[]; domain: string[] }): Promise<AliasLookup> => ({
+  skill: await lookupAliases('skill', names.skill),
+  certification: await lookupAliases('certification', names.certification),
+  domain: await lookupAliases('domain', names.domain),
+})
 
 /** Reads a resume file and returns profile content for the form. Saves nothing. */
 export async function importResume(body: unknown) {

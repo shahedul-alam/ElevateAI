@@ -88,3 +88,24 @@ export async function changeJobStatusRequest(input: { id: string; action: JobAct
   const { data } = await api.post<{ job: JobDetail }>(`/employer/jobs/${input.id}/${input.action}`)
   return data.job
 }
+
+export type JobDraft = {
+  draft: {
+    title: string
+    description: string
+    employmentType?: EmploymentType
+    responsibilities: string[]
+    qualifications: string[]
+    perks: string[]
+    otherDetails: string[]
+    skills: { termId: string; required: boolean }[]
+  }
+  unmappedSkills: string[]
+  termNames: Record<string, string>
+}
+
+/** AI draft of the job form from pasted text. Nothing is saved. */
+export async function draftJobRequest(text: string) {
+  const { data } = await api.post<JobDraft>('/employer/jobs/ai-draft', { text }, { timeout: 90_000 })
+  return data
+}

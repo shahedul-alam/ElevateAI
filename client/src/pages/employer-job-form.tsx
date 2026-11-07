@@ -23,6 +23,7 @@ import { ListCard, ListRow } from '@/components/list-card'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { useMyCompany } from '@/features/company/use-company'
+import { AiDraftCard } from '@/features/jobs/ai-draft-card'
 import { JobPostView } from '@/features/jobs/job-post-view'
 import { searchCatalog } from '@/features/catalog/catalog.api'
 import { CatalogPicker } from '@/features/catalog/catalog-picker'
@@ -120,6 +121,7 @@ function JobFormPage() {
     handleSubmit,
     reset,
     setValue,
+    getValues,
     control,
     formState: { errors, isDirty },
   } = useForm<JobFormValues>({
@@ -259,6 +261,36 @@ function JobFormPage() {
           aria-labelledby="job-tab-edit"
           className="flex flex-col gap-6 [&[hidden]]:hidden"
         >
+          {!closed && (
+            <AiDraftCard
+              hasContent={
+                !!watched.title?.trim() ||
+                watched.skills?.length > 0 ||
+                [watched.responsibilities, watched.qualifications, watched.perks, watched.otherDetails].some(
+                  (l) => l?.some((r) => r.value.trim()),
+                )
+              }
+              onDrafted={({ draft, termNames }) => {
+                for (const [termId, name] of Object.entries(termNames)) remember(termId, name)
+                const rows = (items: string[]) => items.map((value) => ({ value }))
+                // Only display fields and skills: every other scored requirement stays as the employer set it.
+                reset(
+                  {
+                    ...getValues(),
+                    title: draft.title,
+                    description: draft.description,
+                    employmentType: draft.employmentType ?? getValues('employmentType'),
+                    responsibilities: rows(draft.responsibilities),
+                    qualifications: rows(draft.qualifications),
+                    perks: rows(draft.perks),
+                    otherDetails: rows(draft.otherDetails),
+                    skills: draft.skills.map((s) => ({ termId: s.termId, required: s.required, minLevel: 3, minYears: '' })),
+                  },
+                  { keepDefaultValues: true },
+                )
+              }}
+            />
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Basics</CardTitle>
