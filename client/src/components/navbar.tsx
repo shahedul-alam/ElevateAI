@@ -114,6 +114,9 @@ export function Navbar() {
                   </span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/account">Change email</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

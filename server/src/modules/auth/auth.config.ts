@@ -3,6 +3,13 @@ import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { prisma } from '../../config/db'
 import { env } from '../../config/env'
+import { sendMail } from './mail.service'
+import {
+  approveEmailChangeMail,
+  existingAccountMail,
+  resetPasswordMail,
+  verifyEmailMail,
+} from './mail.templates'
 
 export const SIGNUP_ROLES = ['candidate', 'employer'] as const
 export const CLIENT_IP_HEADER = 'x-client-ip'
@@ -17,8 +24,37 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
     autoSignIn: true,
+    requireEmailVerification: env.REQUIRE_EMAIL_VERIFICATION,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      sendMail({ to: user.email, ...resetPasswordMail(url) })
+    },
+    // Only called with verification on (enumeration protection): the caller sees the same response as
+    // a new sign-up, the real owner gets this mail. With it off, sign-up answers 409 as before.
+    onExistingUserSignUp: async ({ user }) => {
+      sendMail({
+        to: user.email,
+        ...existingAccountMail(`${env.CLIENT_ORIGIN}/login`, `${env.CLIENT_ORIGIN}/forgot-password`),
+      })
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    sendOnSignIn: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      sendMail({ to: user.email, ...verifyEmailMail(url) })
+    },
   },
   user: {
+    // Verified users approve from their current address first, then verify the new one, so a
+    // hijacked session cannot silently move the account to another mailbox.
+    changeEmail: {
+      enabled: true,
+      sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+        sendMail({ to: user.email, ...approveEmailChangeMail(newEmail, url) })
+      },
+    },
     additionalFields: {
       // input stays true so sign-up can choose a role; the hook below restricts it.
       role: { type: 'string', required: true, defaultValue: 'candidate' },
@@ -46,6 +82,9 @@ export const auth = betterAuth({
     customRules: {
       '/sign-in/email': { window: 60, max: 5 },
       '/sign-up/email': { window: 60, max: 5 },
+      '/request-password-reset': { window: 60, max: 3 },
+      '/send-verification-email': { window: 60, max: 3 },
+      '/change-email': { window: 60, max: 3 },
     },
   },
   advanced: {

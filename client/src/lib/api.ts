@@ -15,7 +15,8 @@ export type ApiError = {
   details: ApiErrorDetail[]
 }
 
-type ErrorBody = { error?: { message?: string; details?: ApiErrorDetail[] } }
+// Our API wraps errors in `error`; Better Auth's own endpoints answer `{ code, message }` at the top level.
+type ErrorBody = { error?: { message?: string; details?: ApiErrorDetail[] }; message?: string }
 
 /** Normalises any thrown value into the server's `{ error: { message, details } }` shape. */
 export function getApiError(err: unknown): ApiError {
@@ -30,7 +31,7 @@ export function getApiError(err: unknown): ApiError {
     const body = err.response.data?.error
     return {
       status: err.response.status,
-      message: body?.message ?? 'Something went wrong. Please try again.',
+      message: body?.message ?? err.response.data?.message ?? 'Something went wrong. Please try again.',
       details: body?.details ?? [],
     }
   }

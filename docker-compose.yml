@@ -11,5 +11,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  mailpit: # local SMTP catcher: SMTP_URL=smtp://localhost:1025, inbox at http://localhost:8025
+    image: axllent/mailpit
+    restart: unless-stopped
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
 volumes:
   pgdata:

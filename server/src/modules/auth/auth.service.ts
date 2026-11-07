@@ -1,20 +1,26 @@
 import { isAPIError } from 'better-auth/api'
 import { prisma } from '../../config/db'
+import { env } from '../../config/env'
 import { HttpError } from '../../middleware/errors'
 import { auth } from './auth.config'
 import type { LoginInput, RegisterInput } from './auth.schema'
 import { ensureCompany } from '../company/company.service'
 
-/** Creates the account and a session. `headers` carries the session Set-Cookie for the response. */
+// Where the emailed verification link sends the browser afterwards.
+const VERIFY_URL = `${env.CLIENT_ORIGIN}/verify-email`
+
+/** Creates the account and, unless verification is required, a session. `headers` carries the session Set-Cookie for the response. */
 export async function registerUser(input: RegisterInput, requestHeaders: Headers) {
   try {
     const { headers, response } = await auth.api.signUpEmail({
-      body: input,
+      body: { ...input, callbackURL: VERIFY_URL },
       headers: requestHeaders,
       returnHeaders: true,
     })
     // Every employer gets a company page; getOwnCompany recreates it if this ever fails.
-    if (response.user.role === 'employer') {
+    // A duplicate sign-up gets a synthetic user back (verification on): nothing to create a company for.
+    const created = await prisma.user.count({ where: { id: response.user.id } })
+    if (created && response.user.role === 'employer') {
       await ensureCompany(response.user.id, response.user.name).catch((e) => console.error(e))
     }
     return { user: response.user, headers }
@@ -33,7 +39,7 @@ export async function registerUser(input: RegisterInput, requestHeaders: Headers
 export async function loginUser(input: LoginInput, requestHeaders: Headers) {
   try {
     const { headers, response } = await auth.api.signInEmail({
-      body: input,
+      body: { ...input, callbackURL: VERIFY_URL },
       headers: requestHeaders,
       returnHeaders: true,
     })
@@ -41,6 +47,10 @@ export async function loginUser(input: LoginInput, requestHeaders: Headers) {
   } catch (err) {
     if (isAPIError(err) && err.status === 'UNAUTHORIZED') {
       throw new HttpError(401, 'Invalid email or password')
+    }
+    // Better Auth already re-sent the verification mail (sendOnSignIn).
+    if (isAPIError(err) && err.status === 'FORBIDDEN') {
+      throw new HttpError(403, 'Email not verified')
     }
     throw err
   }
@@ -54,6 +64,6 @@ export async function ensureAdmin(email: string, password: string) {
   // Sign up through the API so the password is hashed like any other user's. The sign-up hook
   // rejects role 'admin' for every caller, so sign up as a candidate and promote afterwards.
   const { user } = await auth.api.signUpEmail({ body: { email, password, name: 'Admin', role: 'candidate' } })
-  await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } })
+  await prisma.user.update({ where: { id: user.id }, data: { role: 'admin', emailVerified: true } })
   return { created: true, role: 'admin' }
 }

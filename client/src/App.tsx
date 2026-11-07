@@ -17,7 +17,12 @@ import JobDetail from '@/pages/job-detail'
 import Jobs from '@/pages/jobs'
 import Login from '@/pages/login'
 import Register from '@/pages/register'
+import Account from '@/pages/account'
+import ForgotPassword from '@/pages/forgot-password'
+import ResetPassword from '@/pages/reset-password'
+import VerifyEmail from '@/pages/verify-email'
 import Resume from '@/pages/resume'
+import NotFound from '@/pages/not-found'
 import ResumePreview from '@/pages/resume-preview'
 
 function App() {
@@ -31,6 +36,10 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/account" element={<Account />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/resume" element={<Resume />} />
         <Route path="/resume/preview" element={<ResumePreview />} />
         <Route path="/jobs" element={<Jobs />} />
@@ -44,6 +53,7 @@ function App() {
         <Route path="/employer/hiring" element={<EmployerHiring />} />
         <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
         <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster richColors />
     </>

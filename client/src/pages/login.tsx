@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -18,7 +19,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { loginSchema, type LoginInput } from '@/features/auth/auth.schema'
 import { useAuthStore } from '@/features/auth/auth.store'
+import { useCooldown } from '@/features/auth/use-cooldown'
 import { useLogin } from '@/features/auth/use-login'
+import { useResendVerification } from '@/features/auth/use-resend-verification'
 import { SESSION_KEY } from '@/features/auth/use-session'
 import { getApiError } from '@/lib/api'
 
@@ -30,6 +33,9 @@ export default function Login() {
   const setUser = useAuthStore((s) => s.setUser)
   const authStatus = useAuthStore((s) => s.status)
   const { mutate, isPending } = useLogin()
+  const [unverified, setUnverified] = useState<string | null>(null)
+  const resend = useResendVerification()
+  const cooldown = useCooldown()
 
   const {
     register,
@@ -55,6 +61,13 @@ export default function Login() {
       },
       onError: (err) => {
         const { status, message, details } = getApiError(err)
+
+        if (status === 403) {
+          // The server re-sent the verification mail when it refused the login.
+          setUnverified(values.email)
+          cooldown.start()
+          return
+        }
 
         if (status === 401) {
           // Generic on purpose: the server does not reveal whether the email or password was wrong.
@@ -103,7 +116,32 @@ export default function Login() {
                 {...register('password')}
               />
               <FieldError message={errors.password?.message} />
+              <Link to="/forgot-password" className="text-sm text-muted-foreground underline">
+                Forgot password?
+              </Link>
             </div>
+            {unverified && (
+              <div role="alert" className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
+                <p>
+                  Verify your email first. We sent a link to {unverified}; check your inbox.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={resend.isPending || cooldown.left > 0}
+                  onClick={() =>
+                    resend.mutate(unverified, {
+                      onSuccess: () => {
+                        toast.success('Verification email sent')
+                        cooldown.start()
+                      },
+                    })
+                  }
+                >
+                  {cooldown.left > 0 ? `Resend email (${cooldown.left}s)` : 'Resend email'}
+                </Button>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="mt-6 flex flex-col gap-3">
             <Button type="submit" className="w-full" disabled={isPending}>

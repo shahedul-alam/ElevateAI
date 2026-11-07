@@ -14,7 +14,7 @@ test.describe('session (API)', () => {
     expect(res.status()).toBe(200)
     const { user: me } = await res.json()
     expect(me).toMatchObject({ email: user.email, name: user.name, role: 'employer' })
-    expect(Object.keys(me).sort()).toEqual(['email', 'id', 'name', 'role'])
+    expect(Object.keys(me).sort()).toEqual(['email', 'emailVerified', 'id', 'name', 'role'])
   })
 
   test('rejects a garbage session cookie', async ({ playwright, baseURL }) => {

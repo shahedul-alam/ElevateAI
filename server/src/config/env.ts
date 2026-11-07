@@ -10,6 +10,14 @@ const schema = z.object({
   // Number of reverse proxies in front of the API (0 = none). Express then takes the client IP from
   // X-Forwarded-For at exactly that many hops; never use "true", which trusts a spoofable header.
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+  // Outgoing mail (verification, password reset). Without SMTP_URL, mails are printed to the console.
+  SMTP_URL: z.string().min(1).optional(),
+  MAIL_FROM: z.string().min(1).default('ElevateAI <no-reply@elevateai.local>'),
+  // When true, email/password login is refused until the address is verified.
+  REQUIRE_EMAIL_VERIFICATION: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   // Only used by `bun run db:seed-admin`.
   ADMIN_EMAIL: z.email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional(),

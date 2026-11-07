@@ -5,6 +5,7 @@ export type AuthUser = {
   email: string
   name: string
   role: 'candidate' | 'employer' | 'admin'
+  emailVerified?: boolean
 }
 
 // `loading` until the first GET /api/me settles, so the UI does not flash the logged-out state.

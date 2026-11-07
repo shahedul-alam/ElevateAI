@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
@@ -18,7 +19,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { registerSchema, type RegisterInput, type Role } from '@/features/auth/auth.schema'
 import { useAuthStore } from '@/features/auth/auth.store'
+import { useCooldown } from '@/features/auth/use-cooldown'
 import { useRegister } from '@/features/auth/use-register'
+import { useResendVerification } from '@/features/auth/use-resend-verification'
 import { SESSION_KEY } from '@/features/auth/use-session'
 import { getApiError } from '@/lib/api'
 
@@ -34,6 +37,9 @@ export default function Register() {
   const queryClient = useQueryClient()
   const setUser = useAuthStore((s) => s.setUser)
   const { mutate, isPending } = useRegister()
+  const [sentTo, setSentTo] = useState<string | null>(null)
+  const resend = useResendVerification()
+  const cooldown = useCooldown()
 
   const {
     register,
@@ -53,9 +59,48 @@ export default function Register() {
   if (authStatus === 'loading') return null
   if (authStatus === 'authenticated') return <Navigate to="/" replace />
 
+  if (sentTo) {
+    return (
+      <main className="mx-auto flex max-w-md justify-center px-4 py-12">
+        <Card className="w-full">
+          <CardHeader>
+            <CardTitle>Check your inbox</CardTitle>
+            <CardDescription>
+              We sent a verification link to {sentTo}. Open it to activate your account.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              variant="outline"
+              className="w-full"
+              disabled={resend.isPending || cooldown.left > 0}
+              onClick={() =>
+                resend.mutate(sentTo, {
+                  onSuccess: () => {
+                    toast.success('Verification email sent')
+                    cooldown.start()
+                  },
+                })
+              }
+            >
+              {cooldown.left > 0 ? `Resend email (${cooldown.left}s)` : 'Resend email'}
+            </Button>
+            <Link to="/login" className="text-sm text-foreground underline">
+              Back to log in
+            </Link>
+          </CardFooter>
+        </Card>
+      </main>
+    )
+  }
+
   const onSubmit = (values: RegisterInput) => {
     mutate(values, {
-      onSuccess: (user) => {
+      onSuccess: ({ user, verificationRequired }) => {
+        if (verificationRequired) {
+          setSentTo(user.email)
+          return
+        }
         setUser(user)
         queryClient.setQueryData(SESSION_KEY, user)
         toast.success('Account created', { description: `Welcome to ElevateAI, ${user.name}.` })

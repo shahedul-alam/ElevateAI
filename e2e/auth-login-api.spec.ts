@@ -10,7 +10,7 @@ test.describe('POST /api/auth/login', () => {
     expect(res.status()).toBe(200)
     const body = await res.json()
     expect(body.user).toMatchObject({ email: user.email, name: user.name, role: 'employer' })
-    expect(Object.keys(body.user).sort()).toEqual(['email', 'id', 'name', 'role'])
+    expect(Object.keys(body.user).sort()).toEqual(['email', 'emailVerified', 'id', 'name', 'role'])
     expect(JSON.stringify(body)).not.toContain(user.password)
 
     const cookie = await sessionCookie(request)
