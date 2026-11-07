@@ -20,8 +20,20 @@ export const APPLICATIONS_KEY = ['applications'] as const
 export const useMyApplications = () =>
   useQuery({ queryKey: [...APPLICATIONS_KEY, 'mine'], queryFn: fetchMyApplications })
 
+// Summaries are written in the background after applying: poll briefly (about a minute) while any is missing.
+const SUMMARY_POLL_MS = 5_000
+const SUMMARY_POLL_MAX = 12
+const pollWhileSummaryMissing = (query: {
+  state: { data?: { pages: { applicants: { summary: string | null }[] }[] }; dataUpdateCount: number }
+}) =>
+  query.state.data?.pages.some((p) => p.applicants.some((a) => a.summary === null)) &&
+  query.state.dataUpdateCount < SUMMARY_POLL_MAX
+    ? SUMMARY_POLL_MS
+    : false
+
 export const useApplicants = (jobId: string) =>
   useInfiniteQuery({
+    refetchInterval: pollWhileSummaryMissing,
     queryKey: [...APPLICATIONS_KEY, 'job', jobId],
     queryFn: ({ pageParam }) => fetchApplicants(jobId, pageParam),
     initialPageParam: undefined as string | undefined,
@@ -33,6 +45,7 @@ export const useEmployerApplications = (filters: EmployerApplicationFilters) => 
   const userId = useAuthStore((s) => s.user?.id ?? null)
   return useInfiniteQuery({
     queryKey: [...APPLICATIONS_KEY, 'employer', userId, filters],
+    refetchInterval: pollWhileSummaryMissing,
     queryFn: ({ pageParam }) => fetchEmployerApplications(filters, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,

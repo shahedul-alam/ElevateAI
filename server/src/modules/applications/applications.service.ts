@@ -21,6 +21,7 @@ import {
   toBreakdown,
   type Breakdown,
 } from '../matching/matching.service'
+import { ensureSummaries, ensureSummary } from './applicant-summary.service'
 import { PIPELINE, type ApplicantsQuery, type EmployerApplicationsQuery } from './applications.schema'
 
 type ApplicantRow = Prisma.ApplicationGetPayload<{ include: typeof applicantInclude }>
@@ -54,7 +55,7 @@ export async function applyToJob(candidateId: string, jobId: string) {
   // Frozen here: both versions and the result are stored, so later edits never move this score.
   const match = scoreMatch(profile.content, parseStoredJob(job.currentVersion.content))
   try {
-    return await prisma.$transaction(async (tx) => {
+    const created = await prisma.$transaction(async (tx) => {
       const application = await tx.application.create({
         data: {
           jobId,
@@ -84,6 +85,9 @@ export async function applyToJob(candidateId: string, jobId: string) {
         createdAt: application.createdAt,
       }
     })
+    // After the commit and not awaited: the model call can never slow down or fail an application.
+    void ensureSummary(created.id)
+    return created
   } catch (err) {
     // Two simultaneous submits: the unique (job, candidate) constraint lets only one win.
     if (isUniqueViolation(err)) throw new HttpError(409, 'You have already applied to this job')
@@ -184,6 +188,9 @@ async function presentApplicants(page: ApplicantRow[]) {
     ]),
   )
 
+  // Fills missing summaries in the background; they show up on the next refetch.
+  ensureSummaries(page.filter((a) => a.summary === null).map((a) => a.id))
+
   // Live, not frozen: employers reach the candidate on their current details.
   const contacts = page.map((a) => parseStoredContact(a.candidate.candidateProfile?.contact))
 
@@ -201,6 +208,8 @@ async function presentApplicants(page: ApplicantRow[]) {
         candidateEmail: contacts[i]!.email || a.candidate.email,
         contact: contactView(contacts[i]!),
         headline: profile.headline,
+        // AI description of the frozen resume; employer-only, null until generated.
+        summary: a.summary,
         totalYears: Math.round(profile.roles.reduce((sum, r) => sum + r.years, 0) * 100) / 100,
         status: a.status,
         matchScore: a.matchScore,

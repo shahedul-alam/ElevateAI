@@ -224,6 +224,9 @@ model Application {
   engineVersion    String
   // The employer's own 1-5 opinion; private, never scored, never shown to the candidate.
   rating           Int?
+  summary          String?
+  summaryModel     String?
+  summaryVersion   Int?
   // The candidate's photo as of applying (frozen: the blob is immutable). Employer-only.
   photoId          String?
   photo            PhotoBlob?                 @relation(fields: [photoId], references: [id], onDelete: Restrict)

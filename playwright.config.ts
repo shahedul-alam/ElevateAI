@@ -56,6 +56,8 @@ export default defineConfig({
         // Never let a developer's .env SMTP_URL send real mail from the tests; the sink swallows it.
         SMTP_URL: `smtp://127.0.0.1:${MAIL_SMTP_PORT}`,
         // Fixed e2e admin (seeded on startup) so a developer's .env admin never lands in the test database.
+        // Tests must never reach OpenAI: every AI call answers 503 (the apply flow also fires a background summary).
+        AI_ENABLED: 'false',
         ADMIN_EMAIL: 'admin@e2e.test',
         ADMIN_PASSWORD: 'e2e-admin-password-123',
       },
@@ -89,6 +91,8 @@ export default defineConfig({
         REQUIRE_EMAIL_VERIFICATION: 'true',
         // Set explicitly so a developer's .env SMTP_URL never sends real mail from the tests.
         SMTP_URL: `smtp://127.0.0.1:${MAIL_SMTP_PORT}`,
+        // Tests must never reach OpenAI: every AI call answers 503 (the apply flow also fires a background summary).
+        AI_ENABLED: 'false',
         ADMIN_EMAIL: 'admin@e2e.test',
         ADMIN_PASSWORD: 'e2e-admin-password-123',
       },

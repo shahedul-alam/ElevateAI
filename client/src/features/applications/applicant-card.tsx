@@ -114,6 +114,16 @@ export function ApplicantCard({
           </p>
         )}
 
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-medium text-muted-foreground">AI summary</p>
+          {a.summary ? (
+            <p className="text-sm leading-relaxed">{a.summary}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Not ready yet. It appears here once it has been written.</p>
+          )}
+          <p className="text-xs text-muted-foreground">Describes the resume only. It is not a recommendation.</p>
+        </div>
+
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Your rating</span>

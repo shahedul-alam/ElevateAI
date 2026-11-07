@@ -62,6 +62,8 @@ export type Applicant = {
     links: { label: string; url: string }[]
   }
   headline: string
+  /** AI description of the resume snapshot; null until it has been generated. */
+  summary: string | null
   totalYears: number
   status: ApplicationStatus
   matchScore: number

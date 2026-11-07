@@ -4,7 +4,7 @@ import type { z } from 'zod'
 import { env } from '../../config/env'
 import { HttpError } from '../../middleware/errors'
 
-const openai = env.OPENAI_API_KEY ? createOpenAI({ apiKey: env.OPENAI_API_KEY }) : null
+const openai = env.AI_ENABLED && env.OPENAI_API_KEY ? createOpenAI({ apiKey: env.OPENAI_API_KEY }) : null
 
 /** The one place the AI SDK is called. Returns output validated against `schema`. */
 export async function extractObject<T extends z.ZodType>(opts: {
