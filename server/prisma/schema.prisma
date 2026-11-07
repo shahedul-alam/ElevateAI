@@ -27,6 +27,7 @@ model User {
   applications     Application[]
   notifications    Notification[]
   resumeEvaluations ResumeEvaluation[]
+  gapExplanations   GapExplanation[]
 
   @@unique([email])
   @@map("user")
@@ -372,4 +373,23 @@ model ResumeEvaluation {
   @@unique([userId, contentHash, rubricVersion])
   @@index([userId, createdAt])
   @@map("resumeEvaluation")
+}
+
+/// AI-written note on a candidate gap for a job (advice only). One row per profile version, job version,
+/// engine version and prompt version, so the same inputs are never explained twice.
+model GapExplanation {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileVersionId String
+  jobVersionId     String
+  engineVersion    String
+  promptVersion    Int
+  result           Json
+  model            String
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, profileVersionId, jobVersionId, engineVersion, promptVersion], map: "gapExplanation_key")
+  @@index([userId, createdAt])
+  @@map("gapExplanation")
 }

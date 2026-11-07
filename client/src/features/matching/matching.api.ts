@@ -66,3 +66,18 @@ export async function fetchRecommended(limit = 5) {
   )
   return data
 }
+
+export type GapExplanation = { summary: string; steps: { focus: string; action: string }[] }
+export type GapExplanationResponse = { explanation: GapExplanation | null; remainingToday: number }
+
+export async function fetchGapExplanation(jobId: string) {
+  const { data } = await api.get<GapExplanationResponse>(`/jobs/${jobId}/gap/explanation`)
+  return data
+}
+
+export async function explainGapRequest(jobId: string) {
+  const { data } = await api.post<GapExplanationResponse>(`/jobs/${jobId}/gap/explanation`, undefined, {
+    timeout: 90_000,
+  })
+  return data
+}

@@ -9,6 +9,7 @@ import { STATUS_LABEL } from '@/features/applications/applications.api'
 import { useApply } from '@/features/applications/use-applications'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { getApiError } from '@/lib/api'
+import { GapExplanationSection } from './gap-explanation'
 import { MatchBreakdown } from './match-breakdown'
 import { useGap } from './use-matching'
 
@@ -100,6 +101,7 @@ export function MatchPanel({
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <MatchBreakdown {...gap.data} label="Your match" />
+        {score < 100 && <GapExplanationSection jobId={jobId} />}
 
         {application ? (
           <div role="status" className="rounded-lg border p-3 text-sm">
