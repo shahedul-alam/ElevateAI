@@ -4,7 +4,7 @@ import { newEmployer, publishReactJob, reactProfile } from './support/matching'
 
 import { PASSWORD } from './support/auth'
 
-// AI_ENABLED=false on the e2e stacks: no summary is ever generated, so only the empty state is shown.
+// Empty state only (nothing consented, so nothing generated); see ai-applicant-summary-success.spec.ts for the generated text.
 
 const card = (page: Page, email: string) => page.getByRole('listitem').filter({ hasText: email })
 

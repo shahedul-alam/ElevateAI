@@ -5,8 +5,16 @@ import { extractObject } from '../ai/ai.provider'
 import { parseStoredProfile } from '../candidate-profile/candidate-profile.schema'
 import { termNamesFor } from '../catalog/catalog.service'
 import { DIMENSION_LABEL, DIMENSIONS, EVAL_DAILY_LIMIT, RUBRIC_V1, RUBRIC_VERSION } from './resume-evaluator.config'
-import { rawEvaluationSchema, type Evaluation } from './resume-evaluator.schema'
+import { rawEvaluationSchema, type Evaluation, type RawEvaluation } from './resume-evaluator.schema'
 import { buildEvaluation } from './resume-evaluator.score'
+
+// Canned model output for e2e (AI_STUB): overall works out to 71.
+const STUB: RawEvaluation = {
+  scores: { skills: 80, impact: 60, structure: 70, clarity: 90, completeness: 50 },
+  strengths: ['Clear, focused headline.', 'Relevant skills are listed with levels.'],
+  weaknesses: ['Role descriptions lack measurable results.', 'The summary is short.'],
+  keywords: ['Docker', 'CI/CD'],
+}
 
 const LEVELS = ['Beginner', 'Basic', 'Intermediate', 'Advanced', 'Expert']
 const DEGREES = ['None', 'Diploma or associate', 'Bachelor', 'Master', 'Doctorate']
@@ -95,6 +103,7 @@ export async function evaluateResume(userId: string) {
     system: systemPrompt(),
     messages: [{ role: 'user', content: `<resume>\n${JSON.stringify(resume)}\n</resume>` }],
     schema: rawEvaluationSchema,
+    stub: STUB,
   })
   const evaluation = buildEvaluation(raw)
   try {

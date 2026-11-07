@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type APIResponse } from '@playwri
 import { CLIENT_ORIGIN, grantAiConsent, registerUser, type Role } from './support/auth'
 import { MISSING_ID, newCandidate, newEmployer, publishScoredJob } from './support/matching'
 
-// Every call here fails before the model (AI_ENABLED=false would answer 503 anyway).
+// Every call here fails before the model is reached (consent, auth, role, input checks).
 const CONSENT = '/api/me/ai-consent'
 
 const aiConsent = async (request: APIRequestContext) =>

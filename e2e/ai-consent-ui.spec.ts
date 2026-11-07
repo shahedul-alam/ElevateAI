@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { grantAiConsent, registerUser } from './support/auth'
 
-// AI_ENABLED=false in e2e: the draft request answers 503, so only that it was sent is asserted.
+// The stub answers the draft request; only that it was sent is asserted here (see ai-job-assistant-success.spec.ts).
 const DRAFT = '/api/employer/jobs/ai-draft'
 
 test.describe('AI privacy notice page', () => {

@@ -26,6 +26,11 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
+  // Test-only: extractObject returns each feature's canned output instead of calling OpenAI. Refused in production.
+  AI_STUB: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   // Only used by `bun run db:seed-admin`.
   ADMIN_EMAIL: z.email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional(),
@@ -35,6 +40,14 @@ const parsed = schema.safeParse(process.env)
 if (!parsed.success) {
   console.error('Invalid environment:\n' + z.prettifyError(parsed.error))
   process.exit(1)
+}
+
+if (parsed.data.AI_STUB) {
+  if (parsed.data.NODE_ENV === 'production') {
+    console.error('Invalid environment: AI_STUB must not be set in production')
+    process.exit(1)
+  }
+  console.warn('AI_STUB is on: AI features return canned output and never call OpenAI')
 }
 
 export const env = parsed.data

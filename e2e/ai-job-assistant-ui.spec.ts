@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { registerUser } from './support/auth'
 import { createJobApi, jobAction, publishJobApi } from './support/jobs'
 
-// The Draft with AI button is never clicked, so nothing is sent and no model is called.
+// The Draft with AI button is not clicked here (success paths: ai-job-assistant-success.spec.ts).
 test.describe('Draft with AI card', () => {
   test('is shown on the new job page and explains what happens to the text', async ({ page }) => {
     await registerUser(page.request, { role: 'employer' })

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { grantAiConsent, registerUser } from './support/auth'
 
-// Only the no-saved-resume and unsaved-edits paths: neither reaches the model.
+// Only the no-saved-resume and unsaved-edits paths (success: ai-evaluator-success.spec.ts).
 test.describe('resume review card', () => {
   test('is shown and says employers never see it', async ({ page }) => {
     await registerUser(page.request)

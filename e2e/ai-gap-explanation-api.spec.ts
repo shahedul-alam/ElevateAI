@@ -3,7 +3,7 @@ import { grantAiConsent, registerUser } from './support/auth'
 import { createJobApi, jobAction } from './support/jobs'
 import { MISSING_ID, newCandidate, newEmployer, PROFILE_A, publishScoredJob } from './support/matching'
 
-// Never POST for a candidate with a resume and an active job: that reaches the real model.
+// The Explain button is not clicked here (success paths: ai-gap-explanation-success.spec.ts).
 const url = (id: string) => `/api/jobs/${id}/gap/explanation`
 const both = (request: APIRequestContext, id: string) => [request.get(url(id)), request.post(url(id))]
 

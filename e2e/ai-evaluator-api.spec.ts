@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { grantAiConsent, registerUser } from './support/auth'
 import { profileContent, saveProfileApi } from './support/profile'
 
-// Never POST for a candidate with a saved resume: that would call the model.
+// Paths that need no model call (the success paths are in ai-evaluator-success.spec.ts).
 const PATH = '/api/candidate/profile/evaluation'
 
 test.describe('resume evaluation access', () => {
@@ -18,7 +18,7 @@ test.describe('resume evaluation access', () => {
   })
 })
 
-test.describe('resume evaluation without a model call', () => {
+test.describe('resume evaluation that need no model call', () => {
   test('GET with no saved resume returns no evaluation and the full daily allowance', async ({ request }) => {
     await registerUser(request)
     const res = await request.get(PATH)

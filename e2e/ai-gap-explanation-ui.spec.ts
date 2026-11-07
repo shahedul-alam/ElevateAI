@@ -3,7 +3,7 @@ import { registerUser } from './support/auth'
 import { PROFILE_A, PROFILE_B, publishScoredJob } from './support/matching'
 import { saveProfileApi } from './support/profile'
 
-// The Explain button is never clicked: that would call the real model.
+// The Explain button is not clicked here (success paths: ai-gap-explanation-success.spec.ts).
 const section = (page: import('@playwright/test').Page) => page.getByRole('region', { name: 'Gap explanation' })
 
 test.describe('gap explanation section on the job page', () => {

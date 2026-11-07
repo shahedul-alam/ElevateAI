@@ -45,6 +45,7 @@ export async function ensureSummary(applicationId: string) {
       system: SYSTEM,
       messages: [{ role: 'user', content: `<resume>\n${JSON.stringify(buildSummaryInput(profile, names))}\n</resume>` }],
       schema: summarySchema,
+      stub: { summary: 'The candidate is an engineer with several years of web development experience. The resume lists React and TypeScript as main skills.' },
     })
     const summary = cleanSummary(raw.summary)
     if (!summary) return

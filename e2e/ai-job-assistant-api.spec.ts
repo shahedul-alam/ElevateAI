@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import { grantAiConsent, registerUser } from './support/auth'
 
-// Only paths that fail before the model is called: never send a valid (20..12000 char) text here.
+// Only paths that fail before the model is called (success paths: ai-job-assistant-success.spec.ts).
 const draft = (request: APIRequestContext, data?: unknown) =>
   request.post('/api/employer/jobs/ai-draft', { data })
 

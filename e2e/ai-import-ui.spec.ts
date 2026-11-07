@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { registerUser } from './support/auth'
 
-// Both cases are refused in the browser, so nothing is sent and no model is called.
+// Both cases are refused in the browser, so nothing is sent (success paths: ai-import-success.spec.ts).
 const pick = (page: Page, file: { name: string; mimeType: string; buffer: Buffer }) =>
   page.locator('#resume-import').setInputFiles(file)
 

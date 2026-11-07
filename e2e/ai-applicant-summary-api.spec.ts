@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test'
 import { listHiring, newNamedCandidate } from './support/hiring'
 import { getGap, listApplicants, newEmployer, publishReactJob, reactProfile } from './support/matching'
 
-// The e2e servers run with AI_ENABLED=false, so no summary is ever written: these specs cover the
-// contract around the field (null for employers, absent for candidates), never generated text.
+// Contract around the field (null for employers, absent for candidates) with no summary generated; the
+// generated-text paths are in ai-applicant-summary-success.spec.ts.
 
 test.describe('applicant summary API', () => {
   test('employer endpoints return summary as null when none is generated', async ({ playwright, baseURL }) => {

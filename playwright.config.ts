@@ -56,8 +56,9 @@ export default defineConfig({
         // Never let a developer's .env SMTP_URL send real mail from the tests; the sink swallows it.
         SMTP_URL: `smtp://127.0.0.1:${MAIL_SMTP_PORT}`,
         // Fixed e2e admin (seeded on startup) so a developer's .env admin never lands in the test database.
-        // Tests must never reach OpenAI: every AI call answers 503 (the apply flow also fires a background summary).
-        AI_ENABLED: 'false',
+        // Tests must never reach OpenAI: AI calls return each feature's canned output (AI_STUB), and the specs can
+        // force a provider failure with the __stub_fail__ marker. The verification stack below keeps AI off (503).
+        AI_STUB: 'true',
         ADMIN_EMAIL: 'admin@e2e.test',
         ADMIN_PASSWORD: 'e2e-admin-password-123',
       },

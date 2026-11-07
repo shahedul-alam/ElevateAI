@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import { grantAiConsent, registerUser } from './support/auth'
 
-// Only paths that fail before the model is called: never upload a valid PDF/DOCX here.
+// Only paths that fail before the model is called (success paths: ai-import-success.spec.ts).
 const PDF = 'application/pdf'
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const LIMIT = 5 * 1024 * 1024
