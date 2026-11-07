@@ -55,6 +55,33 @@ export async function importResumeRequest(file: File) {
   return data
 }
 
+export const EVAL_DIMENSIONS = [
+  ['skills', 'Skills relevance'],
+  ['impact', 'Impact'],
+  ['structure', 'Structure'],
+  ['clarity', 'Clarity'],
+  ['completeness', 'Completeness'],
+] as const
+
+export type Evaluation = {
+  overall: number
+  scores: Record<(typeof EVAL_DIMENSIONS)[number][0], number>
+  strengths: string[]
+  weaknesses: string[]
+  keywords: string[]
+}
+export type EvaluationResponse = { evaluation: Evaluation | null; remainingToday: number }
+
+export async function fetchEvaluation() {
+  const { data } = await api.get<EvaluationResponse>('/candidate/profile/evaluation')
+  return data
+}
+
+export async function evaluateRequest() {
+  const { data } = await api.post<EvaluationResponse>('/candidate/profile/evaluation', undefined, { timeout: 90_000 })
+  return data
+}
+
 export async function removePhotoRequest() {
   await api.delete('/candidate/profile/photo')
 }

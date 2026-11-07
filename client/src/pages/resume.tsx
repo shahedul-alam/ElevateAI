@@ -29,6 +29,7 @@ import {
   type ProfileFormValues,
 } from '@/features/profile/profile.schema'
 import { useProfile, useRestoreVersion, useSaveProfile, useVersions } from '@/features/profile/use-profile'
+import { EvaluationCard } from '@/features/profile/evaluation-card'
 import { ImportCard } from '@/features/profile/import-card'
 import { PhotoCard } from '@/features/profile/photo-card'
 import { VersionHistory } from '@/features/profile/version-history'
@@ -680,7 +681,8 @@ function ResumeBuilder() {
         </div>
       </form>
 
-      <aside className="lg:sticky lg:top-20 lg:self-start">
+      <aside className="flex flex-col gap-6 lg:sticky lg:top-20 lg:self-start">
+        <EvaluationCard hasUnsavedChanges={isDirty} />
         <VersionHistory
           onRestore={onRestore}
           restoring={restore.isPending}

@@ -26,6 +26,7 @@ model User {
   company          Company?
   applications     Application[]
   notifications    Notification[]
+  resumeEvaluations ResumeEvaluation[]
 
   @@unique([email])
   @@map("user")
@@ -354,4 +355,21 @@ model Notification {
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, readAt])
   @@map("notification")
+}
+
+/// AI review of a candidate's saved resume (advice only, never scored or shown to employers).
+/// One row per (user, resume content hash, rubric version), so the same content is never re-evaluated.
+model ResumeEvaluation {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentHash   String
+  rubricVersion Int
+  result        Json
+  model         String
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, contentHash, rubricVersion])
+  @@index([userId, createdAt])
+  @@map("resumeEvaluation")
 }

@@ -7,6 +7,7 @@ import { jobsRouter } from './modules/jobs/jobs.routes'
 import { matchingRouter } from './modules/matching/matching.routes'
 import { companyRouter } from './modules/company/company.routes'
 import { notificationsRouter } from './modules/notifications/notifications.routes'
+import { resumeEvaluatorRouter } from './modules/resume-evaluator/resume-evaluator.routes'
 import { resumeImportRouter } from './modules/resume-import/resume-import.routes'
 import { userRouter } from './modules/user/user.routes'
 
@@ -17,6 +18,7 @@ apiRouter.use(userRouter)
 apiRouter.use(catalogRouter)
 apiRouter.use(candidateProfileRouter)
 apiRouter.use(resumeImportRouter)
+apiRouter.use(resumeEvaluatorRouter)
 // matchingRouter first: its `/jobs/recommended` must win over the jobs router's `/jobs/:id`.
 apiRouter.use(matchingRouter)
 apiRouter.use(jobsRouter)

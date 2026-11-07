@@ -4,6 +4,8 @@ import { MATCH_KEY } from '@/features/matching/use-matching'
 import {
   fetchPhotoDataUrl,
   fetchPhotoInfo,
+  evaluateRequest,
+  fetchEvaluation,
   fetchProfile,
   fetchVersions,
   importResumeRequest,
@@ -57,6 +59,20 @@ export function useUploadPhoto() {
 
 // Nothing is cached or invalidated: the result only fills the form until the candidate saves.
 export const useImportResume = () => useMutation({ mutationFn: importResumeRequest })
+
+// Under the ['profile'] prefix, so saving or restoring a version refetches it for the new current version.
+export const EVALUATION_KEY = [...PROFILE_KEY, 'evaluation'] as const
+
+export const useEvaluation = () =>
+  useQuery({ queryKey: EVALUATION_KEY, queryFn: fetchEvaluation, refetchOnWindowFocus: false })
+
+export function useEvaluate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: evaluateRequest,
+    onSuccess: (data) => queryClient.setQueryData(EVALUATION_KEY, data),
+  })
+}
 
 export function useRemovePhoto() {
   const queryClient = useQueryClient()
