@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { registerUser } from './support/auth'
+import { grantAiConsent, registerUser } from './support/auth'
 import { profileContent, saveProfileApi } from './support/profile'
 
 // Never POST for a candidate with a saved resume: that would call the model.
@@ -28,6 +28,7 @@ test.describe('resume evaluation without a model call', () => {
 
   test('POST with no saved resume answers 409', async ({ request }) => {
     await registerUser(request)
+    await grantAiConsent(request)
     const res = await request.post(PATH)
     expect(res.status()).toBe(409)
     expect((await res.json()).error.message).toBe('Save your resume first')

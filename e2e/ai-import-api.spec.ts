@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
-import { registerUser } from './support/auth'
+import { grantAiConsent, registerUser } from './support/auth'
 
 // Only paths that fail before the model is called: never upload a valid PDF/DOCX here.
 const PDF = 'application/pdf'
@@ -23,16 +23,19 @@ test.describe('resume import access', () => {
 test.describe('resume import file checks', () => {
   test('rejects an empty body with 415', async ({ request }) => {
     await registerUser(request)
+    await grantAiConsent(request)
     expect((await importResume(request, Buffer.alloc(0), PDF)).status()).toBe(415)
   })
 
   test('rejects junk bytes sent as a PDF with 415', async ({ request }) => {
     await registerUser(request)
+    await grantAiConsent(request)
     expect((await importResume(request, Buffer.from('this is not a pdf'), PDF)).status()).toBe(415)
   })
 
   test('rejects a zip that is not a DOCX with 415', async ({ request }) => {
     await registerUser(request)
+    await grantAiConsent(request)
     // Zip local file header followed by an unrelated entry name.
     const zip = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('plain.txt just a zip')])
     expect((await importResume(request, zip, DOCX)).status()).toBe(415)
@@ -40,6 +43,7 @@ test.describe('resume import file checks', () => {
 
   test('rejects a body over 5 MB with 413', async ({ request }) => {
     await registerUser(request)
+    await grantAiConsent(request)
     expect((await importResume(request, Buffer.alloc(LIMIT + 1), PDF)).status()).toBe(413)
   })
 })

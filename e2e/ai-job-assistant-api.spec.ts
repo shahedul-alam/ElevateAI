@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
-import { registerUser } from './support/auth'
+import { grantAiConsent, registerUser } from './support/auth'
 
 // Only paths that fail before the model is called: never send a valid (20..12000 char) text here.
 const draft = (request: APIRequestContext, data?: unknown) =>
@@ -29,6 +29,7 @@ test.describe('job assistant input validation', () => {
   for (const c of cases) {
     test(`returns 400 for ${c.name}`, async ({ request }) => {
       await registerUser(request, { role: 'employer' })
+      await grantAiConsent(request)
       const res = await draft(request, c.data)
       expect(res.status()).toBe(400)
       const body = await res.json()

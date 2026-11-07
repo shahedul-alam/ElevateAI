@@ -35,6 +35,12 @@ export async function createUser(request: APIRequestContext, overrides: Partial<
   return user
 }
 
+/** Agrees to the AI privacy notice as the signed-in user of this request context. */
+export async function grantAiConsent(request: APIRequestContext) {
+  const res = await request.post('/api/me/ai-consent')
+  expect(res.status(), await res.text()).toBe(200)
+}
+
 export async function sessionCookie(request: APIRequestContext) {
   const state = await request.storageState()
   return state.cookies.find((c) => c.name === SESSION_COOKIE)

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { registerUser } from './support/auth'
+import { grantAiConsent, registerUser } from './support/auth'
 
 // Only the no-saved-resume and unsaved-edits paths: neither reaches the model.
 test.describe('resume review card', () => {
@@ -12,6 +12,7 @@ test.describe('resume review card', () => {
 
   test('asks to save the resume first when there is none', async ({ page }) => {
     await registerUser(page.request)
+    await grantAiConsent(page.request)
     await page.goto('/resume')
     await page.getByRole('button', { name: 'Review my resume' }).click()
     await expect(page.getByText('Could not evaluate')).toBeVisible()

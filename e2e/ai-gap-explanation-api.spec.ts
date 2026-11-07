@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
-import { registerUser } from './support/auth'
+import { grantAiConsent, registerUser } from './support/auth'
 import { createJobApi, jobAction } from './support/jobs'
 import { MISSING_ID, newCandidate, newEmployer, PROFILE_A, publishScoredJob } from './support/matching'
 
@@ -19,6 +19,7 @@ test.describe('gap explanation access', () => {
 
   test('returns 404 for a non-UUID id', async ({ playwright, baseURL }) => {
     const { ctx } = await newCandidate(playwright, baseURL, PROFILE_A)
+    await grantAiConsent(ctx)
     for (const res of await Promise.all(both(ctx, 'not-a-uuid'))) expect(res.status()).toBe(404)
     await ctx.dispose()
   })
@@ -27,6 +28,7 @@ test.describe('gap explanation access', () => {
 test.describe('gap explanation lookups', () => {
   test('returns 404 for an unknown job', async ({ playwright, baseURL }) => {
     const { ctx } = await newCandidate(playwright, baseURL, PROFILE_A)
+    await grantAiConsent(ctx)
     for (const res of await Promise.all(both(ctx, MISSING_ID))) expect(res.status()).toBe(404)
     await ctx.dispose()
   })
@@ -38,6 +40,7 @@ test.describe('gap explanation lookups', () => {
     expect((await jobAction(employer.ctx, closedJob.id, 'close')).status()).toBe(200)
 
     const { ctx } = await newCandidate(playwright, baseURL, PROFILE_A)
+    await grantAiConsent(ctx)
     for (const id of [draftJob.id, closedJob.id]) {
       for (const res of await Promise.all(both(ctx, id))) expect(res.status()).toBe(404)
     }
@@ -49,6 +52,7 @@ test.describe('gap explanation lookups', () => {
     const employer = await newEmployer(playwright, baseURL)
     const job = await publishScoredJob(employer.ctx)
     const { ctx } = await newCandidate(playwright, baseURL)
+    await grantAiConsent(ctx)
 
     for (const res of await Promise.all(both(ctx, job.id))) {
       expect(res.status()).toBe(409)
@@ -60,6 +64,7 @@ test.describe('gap explanation lookups', () => {
 
   test('checks the job before the resume: unknown job gives 404 even without a resume', async ({ playwright, baseURL }) => {
     const { ctx } = await newCandidate(playwright, baseURL)
+    await grantAiConsent(ctx)
     expect((await ctx.get(url(MISSING_ID))).status()).toBe(404)
     expect((await ctx.post(url(MISSING_ID))).status()).toBe(404)
     await ctx.dispose()
