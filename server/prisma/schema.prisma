@@ -17,13 +17,25 @@ model User {
   emailVerified    Boolean           @default(false)
   image            String?
   role             String            @default("candidate")
+  // Agreement to send text to OpenAI for the AI features; set only by the consent endpoints.
+  aiConsentAt      DateTime?
+  aiConsentVersion Int?
+  // Admin moderation: set only by the admin endpoints (not a Better Auth input field).
+  suspendedAt      DateTime?
+  suspendedReason  String?
+  // Email me when my application status changes; set only by PUT /api/me/email-notifications.
+  emailNotifications Boolean        @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   sessions         Session[]
   accounts         Account[]
   candidateProfile CandidateProfile?
   jobs             Job[]
+  company          Company?
   applications     Application[]
+  notifications    Notification[]
+  resumeEvaluations ResumeEvaluation[]
+  gapExplanations   GapExplanation[]
 
   @@unique([email])
   @@map("user")
@@ -127,6 +139,10 @@ model CandidateProfile {
   // information (a restore must not bring back an old phone number), editing it must not create a
   // version, and it can be corrected or removed. Never scored.
   contact          Json?
+  // Optional photo: like contact it is outside the versions and never scored. Applying copies the id
+  // onto the application, so the employer keeps seeing the photo that was submitted.
+  photoId          String?
+  photo            PhotoBlob?       @relation(fields: [photoId], references: [id], onDelete: Restrict)
   createdAt        DateTime         @default(now())
 
   @@map("candidateProfile")
@@ -164,6 +180,9 @@ model Job {
   versions         JobVersion[]  @relation("AllJobVersions")
   applications     Application[]
   publishedAt      DateTime?
+  // Admin moderation, independent of status so publish/unpublish cannot clear it.
+  suspendedAt      DateTime?
+  suspendedReason  String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -189,6 +208,9 @@ model JobVersion {
 enum ApplicationStatus {
   applied
   under_review
+  technical_interview
+  culture_fit
+  offer
   rejected
   hired
 }
@@ -211,7 +233,17 @@ model Application {
   matchScore       Int
   matchBreakdown   Json
   engineVersion    String
+  // The employer's own 1-5 opinion; private, never scored, never shown to the candidate.
+  rating           Int?
+  summary          String?
+  summaryModel     String?
+  summaryVersion   Int?
+  // The candidate's photo as of applying (frozen: the blob is immutable). Employer-only.
+  photoId          String?
+  photo            PhotoBlob?                 @relation(fields: [photoId], references: [id], onDelete: Restrict)
   history          ApplicationStatusHistory[]
+  notes            ApplicationNote[]
+  notifications    Notification[]
   createdAt        DateTime                   @default(now())
   updatedAt        DateTime                   @updatedAt
 
@@ -233,6 +265,31 @@ model ApplicationStatusHistory {
   @@map("applicationStatusHistory")
 }
 
+// Immutable, content-addressed image (id = sha256 of the bytes). Profiles and applications point at it;
+// it is deleted once nothing does.
+model PhotoBlob {
+  id           String             @id
+  contentType  String
+  data         Bytes
+  createdAt    DateTime           @default(now())
+  profiles     CandidateProfile[]
+  applications Application[]
+
+  @@map("photoBlob")
+}
+
+// Private employer notes on an application. Never returned by a candidate endpoint.
+model ApplicationNote {
+  id            String      @id @default(uuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  body          String
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, createdAt])
+  @@map("applicationNote")
+}
+
 model RateLimit {
   id          String @id
   key         String
@@ -241,4 +298,131 @@ model RateLimit {
 
   @@unique([key])
   @@map("rateLimit")
+}
+
+// The public face of an employer. One per employer account. Text content is current information
+// (editable, not versioned, never scored). `verified` is set only by an admin.
+model Company {
+  id           String         @id @default(uuid())
+  ownerId      String         @unique
+  owner        User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  tagline      String         @default("")
+  about        String         @default("")
+  mission      String         @default("")
+  headquarters String         @default("")
+  size         String         @default("")
+  fundingStage String         @default("")
+  foundedYear  Int?
+  website      String         @default("")
+  links        Json           @default("{}")
+  culture      Json           @default("[]")
+  benefits     Json           @default("[]")
+  hubs         Json           @default("[]")
+  awards       Json           @default("[]")
+  domainId     String?
+  workPolicy   String?
+  verified     Boolean        @default(false)
+  images       CompanyImage[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([domainId])
+  @@map("company")
+}
+
+// Logo and cover bytes live in Postgres (small, capped). Access goes through company.images.ts so
+// object storage can replace it without touching callers.
+model CompanyImage {
+  id          String   @id @default(uuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  kind        String
+  contentType String
+  data        Bytes
+  etag        String
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, kind])
+  @@map("companyImage")
+}
+
+enum NotificationType {
+  application_status
+  application_received
+  moderation
+}
+
+// In-app inbox entry. Title, body and link are written when the event happens (the link is always an
+// internal path built by the server), so an entry stays readable if the job is later edited.
+model Notification {
+  id            String           @id @default(uuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type          NotificationType
+  applicationId String?
+  application   Application?     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  link          String
+  readAt        DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@index([createdAt])
+  @@map("notification")
+}
+
+/// AI review of a candidate's saved resume (advice only, never scored or shown to employers).
+/// One row per (user, resume content hash, rubric version), so the same content is never re-evaluated.
+model ResumeEvaluation {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentHash   String
+  rubricVersion Int
+  result        Json
+  model         String
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, contentHash, rubricVersion])
+  @@index([userId, createdAt])
+  @@map("resumeEvaluation")
+}
+
+/// AI-written note on a candidate gap for a job (advice only). One row per profile version, job version,
+/// engine version and prompt version, so the same inputs are never explained twice.
+model GapExplanation {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profileVersionId String
+  jobVersionId     String
+  engineVersion    String
+  promptVersion    Int
+  result           Json
+  model            String
+  createdAt        DateTime @default(now())
+
+  @@unique([userId, profileVersionId, jobVersionId, engineVersion, promptVersion], map: "gapExplanation_key")
+  @@index([userId, createdAt])
+  @@map("gapExplanation")
+}
+
+/// Who did what in moderation. No foreign keys on purpose: deleting a user (or the admin) must not erase the trail,
+/// so the actor and target are stored as ids plus a text snapshot.
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  actorId     String
+  actorEmail  String
+  action      String
+  targetType  String
+  targetId    String
+  targetLabel String
+  reason      String?
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("adminAuditLog")
 }

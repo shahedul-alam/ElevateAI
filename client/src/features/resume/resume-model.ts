@@ -22,9 +22,12 @@ export type ResumeModel = {
   certifications: string[]
   /** Free-form lines such as leadership and skills that are not in the catalog. */
   additional: string[]
+  /** The candidate's photo as a data URL (PNG or JPEG), when they added one. */
+  photo?: string
 }
 
 type Input = {
+  photo?: string
   name: string
   accountEmail: string
   content: ProfileContent
@@ -41,7 +44,7 @@ export const skillLabel = (s: ResumeModel['skills'][number]) => `${s.name} (${s.
  * (locations, work modes, minimum salary) are deliberately never read: they are private to the
  * candidate and do not belong on a resume.
  */
-export function buildResumeModel({ name, accountEmail, content, contact, termNames }: Input): ResumeModel {
+export function buildResumeModel({ name, accountEmail, content, contact, termNames, photo }: Input): ResumeModel {
   const label = (id: string) => termNames[id] ?? id
 
   const place = [contact.city, contact.country].filter(Boolean).join(', ')
@@ -81,6 +84,7 @@ export function buildResumeModel({ name, accountEmail, content, contact, termNam
     })),
     certifications: content.certIds.map(label).sort((a, b) => a.localeCompare(b)),
     additional,
+    ...(photo && { photo }),
   }
 }
 

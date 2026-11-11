@@ -32,6 +32,19 @@ export async function searchCatalog(kind: CatalogKind, q: string, limit: number)
   })
 }
 
+/** normalized alias -> approved term id, for the given free-text names of one kind. */
+export async function lookupAliases(kind: CatalogKind, names: string[]) {
+  const keys = [...new Set(names.map(normalizeAlias).filter(Boolean))]
+  const lookup = new Map<string, string>()
+  if (keys.length === 0) return lookup
+  const rows = await prisma.catalogAlias.findMany({
+    where: { kind, alias: { in: keys }, term: { status: 'approved' } },
+    select: { alias: true, termId: true },
+  })
+  for (const r of rows) lookup.set(r.alias, r.termId)
+  return lookup
+}
+
 /** id -> display name for the given catalog ids (any status). */
 export async function termNamesFor(ids: Iterable<string>) {
   const rows = await prisma.catalogTerm.findMany({

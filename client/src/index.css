@@ -46,6 +46,33 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-brand-soft: var(--brand-soft);
+    --color-success: var(--success);
+}
+
+/* Landing-page brand tokens; the app theme stays neutral. */
+:root {
+    --brand: #0369a1;
+    --brand-foreground: #ffffff;
+    --brand-soft: #f0f9ff;
+    --success: #15803d;
+}
+
+.dark {
+    --brand: #38bdf8;
+    --brand-foreground: #082f49;
+    --brand-soft: rgb(56 189 248 / 0.1);
+    --success: #4ade80;
+}
+
+@keyframes grow-x {
+    from { transform: scaleX(0); }
+}
+
+@keyframes fill-ring {
+    from { stroke-dashoffset: var(--ring-len); }
 }
 
 :root {

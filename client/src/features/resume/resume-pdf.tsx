@@ -1,4 +1,4 @@
-import { Document, Link, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer'
+import { Document, Image, Link, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer'
 import type { ReactNode } from 'react'
 
 import { safeHref } from '@/lib/safe-href'
@@ -8,6 +8,9 @@ import { skillLabel, type ResumeModel } from './resume-model'
 // selectable text that applicant-tracking systems can read. A4, one column.
 const styles = StyleSheet.create({
   page: { paddingVertical: 40, paddingHorizontal: 44, fontFamily: 'Helvetica', fontSize: 10, lineHeight: 1.35, color: '#111111' },
+  header: { flexDirection: 'row', justifyContent: 'space-between' },
+  headerText: { flex: 1, paddingRight: 12 },
+  photo: { width: 72, height: 72, borderRadius: 6, objectFit: 'cover' },
   name: { fontSize: 20, fontFamily: 'Helvetica-Bold' },
   // The gap under the name must be wide enough for text extraction to see two lines, not one.
   headline: { fontSize: 11.5, marginTop: 6 },
@@ -48,18 +51,21 @@ export function ResumeDocument({ model }: { model: ResumeModel }) {
   return (
     <Document title={`${model.name} - Resume`} author={model.name}>
       <Page size="A4" style={styles.page}>
-        <View>
-          <Text style={styles.name}>{model.name}</Text>
-          {model.headline ? <Text style={styles.headline}>{model.headline}</Text> : null}
-          {model.contact.length > 0 ? <Text style={styles.meta}>{model.contact.join('  |  ')}</Text> : null}
-          {model.links.map((l) => (
-            <Text key={l.label} style={styles.meta}>
-              {l.label}:{' '}
-              <Link src={safeHref(l.url) ?? ''} style={styles.link}>
-                {l.url}
-              </Link>
-            </Text>
-          ))}
+        <View style={styles.header}>
+          <View style={styles.headerText}>
+            <Text style={styles.name}>{model.name}</Text>
+            {model.headline ? <Text style={styles.headline}>{model.headline}</Text> : null}
+            {model.contact.length > 0 ? <Text style={styles.meta}>{model.contact.join('  |  ')}</Text> : null}
+            {model.links.map((l) => (
+              <Text key={l.label} style={styles.meta}>
+                {l.label}:{' '}
+                <Link src={safeHref(l.url) ?? ''} style={styles.link}>
+                  {l.url}
+                </Link>
+              </Text>
+            ))}
+          </View>
+          {model.photo ? <Image src={model.photo} style={styles.photo} /> : null}
         </View>
 
         {model.summary ? (

@@ -3,6 +3,7 @@ import { hashContent } from '../../lib/content-hash'
 import { HttpError } from '../../middleware/errors'
 import type { Prisma } from '../../../generated/prisma/client'
 import { assertApprovedTerms, termNamesFor } from '../catalog/catalog.service'
+import { companyRefSelect, toCompanyRef } from '../company/company.ref'
 import { canonicalizeJob, hasScoredRequirement } from './jobs.canonical'
 import { parseStoredJob, type JobInput, type JobListQuery } from './jobs.schema'
 
@@ -10,6 +11,8 @@ type JobRow = {
   id: string
   status: 'draft' | 'active' | 'closed'
   publishedAt: Date | null
+  suspendedAt: Date | null
+  suspendedReason: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -23,12 +26,18 @@ const jobTermIds = (c: JobInput) => [
   ...c.certIds,
 ]
 
+/** Up to five skills for a job card, required ones first. */
+export const topSkills = (c: JobInput) =>
+  [...c.skills].sort((a, b) => Number(b.required) - Number(a.required)).slice(0, 5).map((s) => s.termId)
+
 async function toDto(job: JobRow, version: VersionRow) {
   const content = contentOf(version)
   return {
     id: job.id,
     status: job.status,
     publishedAt: job.publishedAt,
+    suspendedAt: job.suspendedAt,
+    suspendedReason: job.suspendedReason,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     versionId: version.id,
@@ -94,6 +103,8 @@ export async function listEmployerJobs(employerId: string) {
     status: j.status,
     title: j.currentVersion ? contentOf(j.currentVersion).title : '',
     publishedAt: j.publishedAt,
+    suspendedAt: j.suspendedAt,
+    suspendedReason: j.suspendedReason,
     updatedAt: j.updatedAt,
   }))
 }
@@ -106,6 +117,7 @@ export async function getEmployerJob(employerId: string, id: string) {
 export async function updateJob(employerId: string, id: string, input: JobInput) {
   const { job } = await loadOwned(employerId, id)
   if (job.status === 'closed') throw new HttpError(409, 'A closed job cannot be edited')
+  if (job.suspendedAt) throw new HttpError(409, 'A suspended job cannot be edited')
   await assertCatalogTerms(input)
   // An active job is public and ranks applicants, so it may not drop to a requirement-free post.
   if (job.status === 'active') requireRequirement(input)
@@ -125,6 +137,8 @@ export type JobAction = keyof typeof TRANSITIONS
 export async function changeJobStatus(employerId: string, id: string, action: JobAction) {
   const { job, version } = await loadOwned(employerId, id)
   const { from, to } = TRANSITIONS[action]
+  // Closing stays allowed so an employer can end a suspended post; publish/unpublish would dodge the takedown.
+  if (job.suspendedAt && action !== 'close') throw new HttpError(409, `Cannot ${action} a suspended job`)
   if (job.status !== from) throw new HttpError(409, `Cannot ${action} a ${job.status} job`)
   if (action === 'publish') requireRequirement(contentOf(version))
 
@@ -148,11 +162,17 @@ export async function listPublicJobs(query: JobListQuery) {
     })
   }
   if (query.workMode) and.push({ content: { path: ['workMode'], equals: query.workMode } })
+  if (query.employmentType) and.push({ content: { path: ['employmentType'], equals: query.employmentType } })
   if (query.domainId) and.push({ content: { path: ['domainId'], equals: query.domainId } })
 
   const rows = await prisma.job.findMany({
-    where: { status: 'active', currentVersion: { AND: and } },
-    include: { currentVersion: true, employer: { select: { name: true } } },
+    where: {
+      status: 'active',
+      suspendedAt: null,
+      currentVersion: { AND: and },
+      employer: { suspendedAt: null, ...(query.companyId && { company: { id: query.companyId } }) },
+    },
+    include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
     take: query.limit + 1,
     ...(query.cursor && { cursor: { id: query.cursor }, skip: 1 }),
@@ -160,9 +180,6 @@ export async function listPublicJobs(query: JobListQuery) {
   const page = rows.slice(0, query.limit)
 
   const cards = page.flatMap((j) => (j.currentVersion ? [{ job: j, content: contentOf(j.currentVersion) }] : []))
-  // Show up to five skills per card, required ones first.
-  const topSkills = (c: JobInput) =>
-    [...c.skills].sort((a, b) => Number(b.required) - Number(a.required)).slice(0, 5).map((s) => s.termId)
   const termNames = await termNamesFor(
     cards.flatMap(({ content }) => [...topSkills(content), ...(content.domainId ? [content.domainId] : [])]),
   )
@@ -170,10 +187,13 @@ export async function listPublicJobs(query: JobListQuery) {
   return {
     jobs: cards.map(({ job, content }) => ({
       id: job.id,
-      employerName: job.employer.name,
+      employerName: job.employer.company?.name ?? job.employer.name,
+      company: job.employer.company ? toCompanyRef(job.employer.company) : null,
       title: content.title,
       location: content.location,
       workMode: content.workMode,
+      employmentType: content.employmentType,
+      applicationDeadline: content.applicationDeadline,
       salaryMin: content.salaryMin,
       salaryMax: content.salaryMax,
       domainId: content.domainId,
@@ -187,9 +207,14 @@ export async function listPublicJobs(query: JobListQuery) {
 
 export async function getPublicJob(id: string) {
   const job = await prisma.job.findFirst({
-    where: { id, status: 'active' },
-    include: { currentVersion: true, employer: { select: { name: true } } },
+    where: { id, status: 'active', suspendedAt: null, employer: { suspendedAt: null } },
+    include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
   })
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')
-  return { ...(await toDto(job, job.currentVersion)), employerName: job.employer.name }
+  const { company } = job.employer
+  return {
+    ...(await toDto(job, job.currentVersion)),
+    employerName: company?.name ?? job.employer.name,
+    company: company ? toCompanyRef(company) : null,
+  }
 }

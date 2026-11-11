@@ -5,6 +5,11 @@ export type AuthUser = {
   email: string
   name: string
   role: 'candidate' | 'employer' | 'admin'
+  emailVerified?: boolean
+  /** Agreed to the current AI privacy notice. */
+  aiConsent?: boolean
+  /** Email me when my application status changes. */
+  emailNotifications?: boolean
 }
 
 // `loading` until the first GET /api/me settles, so the UI does not flash the logged-out state.

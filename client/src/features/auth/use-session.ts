@@ -19,7 +19,8 @@ export function useSession() {
   useEffect(() => {
     const { setUser, clearUser, settleAnonymous } = useAuthStore.getState()
     // Check the 401 first: after a failed refetch React Query still holds the previous `data`.
-    if (isError && getApiError(error).status === 401) clearUser()
+    // /me only answers 403 for a suspended account.
+    if (isError && [401, 403].includes(getApiError(error).status ?? 0)) clearUser()
     else if (data) setUser(data)
     else if (isError) settleAnonymous()
   }, [data, error, isError])

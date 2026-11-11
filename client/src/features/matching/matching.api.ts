@@ -1,5 +1,7 @@
 import { api } from '@/lib/api'
 import type { WorkMode } from '@/features/profile/profile.schema'
+import type { EmploymentType } from '@/features/jobs/jobs.schema'
+import type { CompanyRef } from '@/features/company/company.schema'
 
 export type DimensionKey =
   | 'skills'
@@ -9,7 +11,14 @@ export type DimensionKey =
   | 'leadership'
   | 'certifications'
 export type EligibilityStatus = 'ok' | 'mismatch' | 'unknown'
-export type ApplicationStatus = 'applied' | 'under_review' | 'rejected' | 'hired'
+export type ApplicationStatus =
+  | 'applied'
+  | 'under_review'
+  | 'technical_interview'
+  | 'culture_fit'
+  | 'offer'
+  | 'rejected'
+  | 'hired'
 
 export type Dimension = { key: DimensionKey; score: number; weight: number; applicable: boolean }
 
@@ -32,12 +41,15 @@ export type Gap = Breakdown & {
 export type RecommendedJob = {
   id: string
   employerName: string
+  company: CompanyRef | null
   title: string
   location?: string
   workMode?: WorkMode
+  employmentType?: EmploymentType
   salaryMin?: number
   salaryMax?: number
   domainId?: string
+  skillIds: string[]
   score: number
   eligibility: Breakdown['eligibility']
 }
@@ -52,5 +64,20 @@ export async function fetchRecommended(limit = 5) {
     '/jobs/recommended',
     { params: { limit } },
   )
+  return data
+}
+
+export type GapExplanation = { summary: string; steps: { focus: string; action: string }[] }
+export type GapExplanationResponse = { explanation: GapExplanation | null; remainingToday: number }
+
+export async function fetchGapExplanation(jobId: string) {
+  const { data } = await api.get<GapExplanationResponse>(`/jobs/${jobId}/gap/explanation`)
+  return data
+}
+
+export async function explainGapRequest(jobId: string) {
+  const { data } = await api.post<GapExplanationResponse>(`/jobs/${jobId}/gap/explanation`, undefined, {
+    timeout: 90_000,
+  })
   return data
 }

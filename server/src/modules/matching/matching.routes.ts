@@ -1,6 +1,8 @@
+import { requireAiConsent } from '../ai/ai-consent'
 import { Router } from 'express'
 import { requireUuidParam, validateQuery } from '../../middleware/validate'
 import { requireAuth, requireRole } from '../auth/auth.middleware'
+import { getJobGapExplanation, postJobGapExplanation } from './gap-explanation.controller'
 import { getJobGap, getRecommendedJobs } from './matching.controller'
 import { recommendQuerySchema } from './matching.schema'
 
@@ -15,3 +17,18 @@ matchingRouter.get(
   getRecommendedJobs,
 )
 matchingRouter.get('/jobs/:id/gap', requireUuidParam(), requireAuth, requireRole('candidate'), getJobGap)
+matchingRouter.get(
+  '/jobs/:id/gap/explanation',
+  requireUuidParam(),
+  requireAuth,
+  requireRole('candidate'),
+  getJobGapExplanation,
+)
+matchingRouter.post(
+  '/jobs/:id/gap/explanation',
+  requireUuidParam(),
+  requireAuth,
+  requireRole('candidate'),
+  requireAiConsent,
+  postJobGapExplanation,
+)

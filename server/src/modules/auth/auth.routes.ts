@@ -1,27 +1,15 @@
 import { toNodeHandler } from 'better-auth/node'
 import express, { Router } from 'express'
-import { rateLimit } from 'express-rate-limit'
-import { env } from '../../config/env'
 import { HttpError } from '../../middleware/errors'
+import { limiter } from '../../middleware/rate-limit'
 import { validate } from '../../middleware/validate'
 import { auth, CLIENT_IP_HEADER } from './auth.config'
 import { login, register } from './auth.controller'
 import { loginSchema, registerSchema } from './auth.schema'
 
 // Better Auth's built-in limiter does not cover server-side auth.api calls, so these routes have their own.
-const limiter = (message: string) =>
-  rateLimit({
-    windowMs: 60_000,
-    limit: 5,
-    // Only enforced in production, so dev and e2e runs are not throttled.
-    skip: () => env.NODE_ENV !== 'production',
-    handler: (_req, res) => {
-      res.status(429).json({ error: { message } })
-    },
-  })
-
-const registerLimiter = limiter('Too many sign-up attempts, try again later')
-const loginLimiter = limiter('Too many sign-in attempts, try again later')
+const registerLimiter = limiter({ name: 'register', windowMs: 60_000, limit: 5, message: 'Too many sign-up attempts, try again later' })
+const loginLimiter = limiter({ name: 'login', windowMs: 60_000, limit: 5, message: 'Too many sign-in attempts, try again later' })
 
 const notFoundRoute = () => {
   throw new HttpError(404, 'Not found')

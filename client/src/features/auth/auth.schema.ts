@@ -3,6 +3,26 @@ import { z } from 'zod'
 // Mirrors server/src/modules/auth/auth.schema.ts so errors show before a request is sent.
 export const SIGNUP_ROLES = ['candidate', 'employer'] as const
 
+const newPasswordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(128, 'Password must be at most 128 characters')
+  .regex(/[A-Za-z]/, 'Password must contain a letter')
+  .regex(/\d/, 'Password must contain a digit')
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().pipe(z.email('Enter a valid email address')),
+})
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
+
+export const changeEmailSchema = z.object({
+  newEmail: z.string().trim().pipe(z.email('Enter a valid email address')),
+})
+export type ChangeEmailInput = z.infer<typeof changeEmailSchema>
+
+export const resetPasswordSchema = z.object({ newPassword: newPasswordSchema })
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
+
 export const registerSchema = z.object({
   name: z
     .string()
@@ -10,12 +30,7 @@ export const registerSchema = z.object({
     .min(1, 'Name is required')
     .max(100, 'Name must be at most 100 characters'),
   email: z.string().trim().pipe(z.email('Enter a valid email address')),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(128, 'Password must be at most 128 characters')
-    .regex(/[A-Za-z]/, 'Password must contain a letter')
-    .regex(/\d/, 'Password must contain a digit'),
+  password: newPasswordSchema,
   role: z.enum(SIGNUP_ROLES, 'Choose candidate or employer'),
 })
 

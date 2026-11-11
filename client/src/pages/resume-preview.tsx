@@ -7,7 +7,7 @@ import { NativeSelect } from '@/components/native-select'
 import { RequireRole } from '@/components/require-role'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/features/auth/auth.store'
-import { useProfile, useVersions } from '@/features/profile/use-profile'
+import { usePhotoDataUrl, usePhotoUrl, useProfile, useVersions } from '@/features/profile/use-profile'
 import { buildResumeModel, hasPdfUnsupportedChars, resumeFilename } from '@/features/resume/resume-model'
 import { ResumeSheet } from '@/features/resume/resume-view'
 
@@ -36,6 +36,10 @@ function PreviewPage() {
   const versions = useVersions()
   const user = useAuthStore((s) => s.user)
   const [downloading, setDownloading] = useState(false)
+  // Photos are not versioned, so every version is shown with the current one.
+  const photoUrl = usePhotoUrl()
+  const photo = usePhotoDataUrl(photoUrl.data)
+  const photoLoading = photoUrl.isPending || photo.isPending && !!photoUrl.data
 
   if (profile.isPending) return null
   const current = profile.data
@@ -84,6 +88,7 @@ function PreviewPage() {
     // Contact is not versioned: every version is shown with the current details.
     contact: current.contact,
     termNames,
+    photo: photo.data,
   })
 
   const onDownload = async () => {
@@ -114,7 +119,7 @@ function PreviewPage() {
           <p className="text-sm text-muted-foreground">This is how your resume reads in the downloaded PDF.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={onDownload} disabled={downloading}>
+          <Button onClick={onDownload} disabled={downloading || photoLoading}>
             <Download className="size-4" />
             {downloading ? 'Preparing PDF...' : 'Download PDF'}
           </Button>

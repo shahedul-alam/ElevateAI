@@ -4,6 +4,7 @@ import { MATCH_KEY } from '@/features/matching/use-matching'
 import {
   changeJobStatusRequest,
   createJobRequest,
+  draftJobRequest,
   fetchJob,
   fetchJobs,
   fetchMyJob,
@@ -26,7 +27,10 @@ export const usePublicJobs = (filters: JobListFilters) =>
 export const usePublicJob = (id: string) =>
   useQuery({ queryKey: [...JOBS_KEY, 'public', id], queryFn: () => fetchJob(id), retry: false })
 
-export const useMyJobs = () => useQuery({ queryKey: [...JOBS_KEY, 'mine'], queryFn: fetchMyJobs })
+// Nothing is cached or invalidated: the result only fills the form until the employer saves.
+export const useDraftJob = () => useMutation({ mutationFn: draftJobRequest })
+
+export const useMyJobs =() => useQuery({ queryKey: [...JOBS_KEY, 'mine'], queryFn: fetchMyJobs })
 
 // No focus refetch: a reload would reset the edit form and drop unsaved changes.
 export const useMyJob = (id: string | undefined) =>

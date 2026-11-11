@@ -1,7 +1,9 @@
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import { termNamesFor } from '../catalog/catalog.service'
+import { companyRefSelect, toCompanyRef } from '../company/company.ref'
 import { parseStoredProfile, type ProfileInput } from '../candidate-profile/candidate-profile.schema'
+import { topSkills } from '../jobs/jobs.service'
 import { parseStoredJob, type JobInput } from '../jobs/jobs.schema'
 import { checkEligibility, matchEngine } from './matching.engine'
 import type { EligibilityResult, MatchResult } from './matching.types'
@@ -54,7 +56,7 @@ export async function nameBreakdown(b: Breakdown) {
 /** Live gap view: the current profile against the job's current requirements. */
 export async function getGap(userId: string, jobId: string) {
   const job = await prisma.job.findFirst({
-    where: { id: jobId, status: 'active' },
+    where: { id: jobId, status: 'active', suspendedAt: null, employer: { suspendedAt: null } },
     include: { currentVersion: true },
   })
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')
@@ -81,8 +83,13 @@ export async function getGap(userId: string, jobId: string) {
 export async function recommendJobs(userId: string, limit: number) {
   const profile = await loadCurrentProfile(userId)
   const jobs = await prisma.job.findMany({
-    where: { status: 'active', applications: { none: { candidateId: userId } } },
-    include: { currentVersion: true, employer: { select: { name: true } } },
+    where: {
+      status: 'active',
+      suspendedAt: null,
+      employer: { suspendedAt: null },
+      applications: { none: { candidateId: userId } },
+    },
+    include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
     take: RECOMMEND_POOL,
   })
@@ -93,17 +100,20 @@ export async function recommendJobs(userId: string, limit: number) {
     .sort((a, b) => b.match.score - a.match.score || (a.job.id < b.job.id ? -1 : 1))
     .slice(0, limit)
 
-  const termNames = await termNamesFor(scored.flatMap((s) => (s.content.domainId ? [s.content.domainId] : [])))
+  const termNames = await termNamesFor(scored.flatMap((s) => [...topSkills(s.content), ...(s.content.domainId ? [s.content.domainId] : [])]))
   return {
     jobs: scored.map(({ job, content, match }) => ({
       id: job.id,
-      employerName: job.employer.name,
+      employerName: job.employer.company?.name ?? job.employer.name,
+      company: job.employer.company ? toCompanyRef(job.employer.company) : null,
       title: content.title,
       location: content.location,
       workMode: content.workMode,
+      employmentType: content.employmentType,
       salaryMin: content.salaryMin,
       salaryMax: content.salaryMax,
       domainId: content.domainId,
+      skillIds: topSkills(content),
       score: match.score,
       eligibility: match.eligibility,
     })),

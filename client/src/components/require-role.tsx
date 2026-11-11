@@ -3,7 +3,7 @@ import { Navigate } from 'react-router'
 
 import { useAuthStore } from '@/features/auth/auth.store'
 
-type Props = { role: 'candidate' | 'employer'; message: string; children: ReactNode }
+type Props = { role: 'candidate' | 'employer' | 'admin'; message: string; children: ReactNode }
 
 /** Waits for the session check, sends anonymous visitors to /login and blocks other roles. */
 export function RequireRole({ role, message, children }: Props) {

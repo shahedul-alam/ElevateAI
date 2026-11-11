@@ -24,7 +24,7 @@ test.describe('POST /api/auth/register', () => {
     const text = await res.text()
     expect(text).not.toContain(user.password)
     expect(text.toLowerCase()).not.toContain('hash')
-    expect(Object.keys(JSON.parse(text).user).sort()).toEqual(['email', 'id', 'name', 'role'])
+    expect(Object.keys(JSON.parse(text).user).sort()).toEqual(['email', 'emailVerified', 'id', 'name', 'role'])
   })
 
   test('sets an HttpOnly, SameSite session cookie', async ({ request }) => {

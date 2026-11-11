@@ -1,7 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { MATCH_KEY } from '@/features/matching/use-matching'
-import { fetchProfile, fetchVersions, restoreVersionRequest, saveProfileRequest } from './profile.api'
+import {
+  fetchPhotoDataUrl,
+  fetchPhotoInfo,
+  evaluateRequest,
+  fetchEvaluation,
+  fetchProfile,
+  fetchVersions,
+  importResumeRequest,
+  removePhotoRequest,
+  restoreVersionRequest,
+  saveProfileRequest,
+  uploadPhotoRequest,
+} from './profile.api'
 
 export const PROFILE_KEY = ['profile'] as const
 export const VERSIONS_KEY = ['profile', 'versions'] as const
@@ -22,6 +34,52 @@ function useRefreshProfile() {
       queryClient.invalidateQueries({ queryKey: PROFILE_KEY }),
       queryClient.invalidateQueries({ queryKey: MATCH_KEY }),
     ])
+}
+
+export const PHOTO_KEY = [...PROFILE_KEY, 'photo'] as const
+
+export const usePhotoUrl = () => useQuery({ queryKey: PHOTO_KEY, queryFn: fetchPhotoInfo })
+
+/** The current photo as a data URL (undefined while loading or when there is none). */
+export const usePhotoDataUrl = (photoUrl: string | null | undefined) =>
+  useQuery({
+    queryKey: [...PHOTO_KEY, 'data', photoUrl],
+    queryFn: () => fetchPhotoDataUrl(photoUrl!),
+    enabled: !!photoUrl,
+    staleTime: Infinity, // the URL carries the content hash
+  })
+
+export function useUploadPhoto() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: uploadPhotoRequest,
+    onSuccess: (photoUrl) => queryClient.setQueryData(PHOTO_KEY, photoUrl),
+  })
+}
+
+// Nothing is cached or invalidated: the result only fills the form until the candidate saves.
+export const useImportResume = () => useMutation({ mutationFn: importResumeRequest })
+
+// Under the ['profile'] prefix, so saving or restoring a version refetches it for the new current version.
+export const EVALUATION_KEY = [...PROFILE_KEY, 'evaluation'] as const
+
+export const useEvaluation = () =>
+  useQuery({ queryKey: EVALUATION_KEY, queryFn: fetchEvaluation, refetchOnWindowFocus: false })
+
+export function useEvaluate() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: evaluateRequest,
+    onSuccess: (data) => queryClient.setQueryData(EVALUATION_KEY, data),
+  })
+}
+
+export function useRemovePhoto() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: removePhotoRequest,
+    onSuccess: () => queryClient.setQueryData(PHOTO_KEY, null),
+  })
 }
 
 export function useSaveProfile() {

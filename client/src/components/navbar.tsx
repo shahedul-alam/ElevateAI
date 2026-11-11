@@ -23,21 +23,36 @@ import {
 import { signOutRequest } from '@/features/auth/auth.api'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { SESSION_KEY } from '@/features/auth/use-session'
+import { NotificationBell } from '@/features/notifications/notification-bell'
 import { cn } from '@/lib/utils'
 
-// /dashboard is a placeholder: that route does not exist yet.
 const candidateLinks = [
   { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
   { to: '/resume', label: 'Resume' },
   { to: '/applications', label: 'Applications' },
   { to: '/dashboard', label: 'Dashboard' },
 ]
 
+// Signed-out visitors only get the public pages; the rest would bounce them to the login.
+const guestLinks = [
+  { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
+]
+
 // Employers have no resume; they manage their postings instead.
 const employerLinks = [
   { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
   { to: '/employer/jobs', label: 'Your jobs' },
-  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/employer/hiring', label: 'Hiring' },
+  { to: '/employer/company', label: 'Company profile' },
+]
+
+const adminLinks = [
+  { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
+  { to: '/admin', label: 'Admin' },
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -52,11 +67,15 @@ function useSignOut() {
   const queryClient = useQueryClient()
 
   return () => {
-    // Best effort: the local state is cleared even if the request fails.
-    signOutRequest().catch(() => {})
-    queryClient.removeQueries({ queryKey: SESSION_KEY })
-    clearUser()
-    navigate('/')
+    // Best effort: the local state is cleared even if the request fails, but only once it has settled,
+    // so the /me refetch that follows cannot find the old session and resurrect the user.
+    signOutRequest()
+      .catch(() => {})
+      .finally(() => {
+        queryClient.removeQueries({ queryKey: SESSION_KEY })
+        clearUser()
+        navigate('/')
+      })
   }
 }
 
@@ -65,7 +84,14 @@ export function Navbar() {
   const user = useAuthStore((s) => s.user)
   const status = useAuthStore((s) => s.status)
   const signOut = useSignOut()
-  const links = user?.role === 'employer' ? employerLinks : candidateLinks
+  const links =
+    user?.role === 'employer'
+      ? employerLinks
+      : user?.role === 'admin'
+        ? adminLinks
+        : user
+          ? candidateLinks
+          : guestLinks
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
@@ -83,6 +109,7 @@ export function Navbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          {user && <NotificationBell />}
           <ModeToggle />
           {status === 'loading' ? (
             <div
@@ -104,6 +131,9 @@ export function Navbar() {
                   </span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link to="/account">Change email</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={signOut}>Sign out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

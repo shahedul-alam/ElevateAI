@@ -79,3 +79,30 @@ test('older stored jobs without a degree requirement read as not required', () =
   const { minDegreeLevel: _omitted, ...old } = { ...base, minDegreeLevel: 0 }
   expect(parseStoredJob(old).minDegreeLevel).toBe(0)
 })
+
+test('empty display lists keep the hash of a job saved before they existed', () => {
+  expect(hashOf({ ...base, responsibilities: [], perks: [] })).toBe(hashOf(base))
+  expect(canonicalizeJob(parse(base))).not.toHaveProperty('perks')
+})
+
+test('display lists keep order, trim, drop repeats, and change the hash', () => {
+  const a = canonicalizeJob(parse({ ...base, responsibilities: [' Ship ', 'Review', 'Ship'] }))
+  expect(a.responsibilities).toEqual(['Ship', 'Review'])
+  expect(hashOf({ ...base, responsibilities: ['Review', 'Ship'] })).not.toBe(
+    hashOf({ ...base, responsibilities: ['Ship', 'Review'] }),
+  )
+})
+
+test('older stored jobs read with empty lists and no employment type', () => {
+  const job = parseStoredJob(base)
+  expect(job.perks).toEqual([])
+  expect(job.otherDetails).toEqual([])
+  expect(job.employmentType).toBeUndefined()
+})
+
+test('rejects bad employment type, blank list items and impossible deadlines', () => {
+  expect(() => parse({ ...base, employmentType: 'freelance' })).toThrow()
+  expect(() => parse({ ...base, perks: ['  '] })).toThrow()
+  expect(() => parse({ ...base, applicationDeadline: '2026-02-31' })).toThrow()
+  expect(parse({ ...base, employmentType: 'internship', applicationDeadline: '2026-12-31' }).employmentType).toBe('internship')
+})
