@@ -2,7 +2,25 @@ import { expect, test } from '@playwright/test'
 import { MISSING_ID, newEmployer, publishReactJob, reactProfile, setStatus } from './support/matching'
 import { applyCandidate } from './support/hiring'
 import { uniqueTitle } from './support/jobs'
-import { listNotifications, markAllReadApi, markReadApi, unreadCountApi } from './support/notifications'
+import {
+  clearNotificationsApi,
+  deleteNotificationApi,
+  listNotifications,
+  markAllReadApi,
+  markReadApi,
+  unreadCountApi,
+} from './support/notifications'
+
+/** A candidate with `moves` status notifications (the first stage move is under_review, then technical_interview, ...). */
+async function candidateWithNotifications(playwright: Parameters<typeof newEmployer>[0], baseURL: string | undefined, moves: number) {
+  const employer = await newEmployer(playwright, baseURL)
+  const job = await publishReactJob(employer.ctx, 4)
+  const ada = await applyCandidate(playwright, baseURL, 'Ada Lovelace', job.id, reactProfile(3))
+  for (const status of ['under_review', 'technical_interview', 'culture_fit', 'offer'].slice(0, moves)) {
+    expect((await setStatus(employer.ctx, ada.applicationId, status)).status()).toBe(200)
+  }
+  return { employer, ada, job }
+}
 
 test.describe('notifications API access', () => {
   test('rejects unauthenticated requests with 401', async ({ request }) => {
@@ -10,6 +28,8 @@ test.describe('notifications API access', () => {
     expect((await request.get('/api/notifications/unread-count')).status()).toBe(401)
     expect((await request.post('/api/notifications/read-all')).status()).toBe(401)
     expect((await request.post(`/api/notifications/${MISSING_ID}/read`)).status()).toBe(401)
+    expect((await deleteNotificationApi(request, MISSING_ID)).status()).toBe(401)
+    expect((await clearNotificationsApi(request)).status()).toBe(401)
   })
 
   test('starts empty for a new user', async ({ playwright, baseURL }) => {
@@ -225,5 +245,90 @@ test.describe('reading and paging', () => {
     expect(await unreadCountApi(employer.ctx)).toBe(1)
     await employer.ctx.dispose()
     await ada.ctx.dispose()
+  })
+})
+
+test.describe('deleting notifications', () => {
+  test('deletes an unread one (204), updates the count, and a repeat is 404', async ({ playwright, baseURL }) => {
+    const { employer, ada } = await candidateWithNotifications(playwright, baseURL, 3)
+    const { notifications } = await listNotifications(ada.ctx)
+    expect(await unreadCountApi(ada.ctx)).toBe(3)
+
+    expect((await deleteNotificationApi(ada.ctx, notifications[0]!.id)).status()).toBe(204)
+    const after = await listNotifications(ada.ctx)
+    expect(after.notifications.map((n) => n.id)).toEqual([notifications[1]!.id, notifications[2]!.id])
+    expect(after.unreadCount).toBe(2)
+
+    const again = await deleteNotificationApi(ada.ctx, notifications[0]!.id)
+    expect(again.status()).toBe(404)
+    expect((await again.json()).error.message).toBe('Notification not found')
+    await Promise.all([employer.ctx.dispose(), ada.ctx.dispose()])
+  })
+
+  test('deleting a read one leaves the unread count unchanged', async ({ playwright, baseURL }) => {
+    const { employer, ada } = await candidateWithNotifications(playwright, baseURL, 2)
+    const [newest] = (await listNotifications(ada.ctx)).notifications
+    await markReadApi(ada.ctx, newest!.id)
+    expect(await unreadCountApi(ada.ctx)).toBe(1)
+
+    expect((await deleteNotificationApi(ada.ctx, newest!.id)).status()).toBe(204)
+    expect(await unreadCountApi(ada.ctx)).toBe(1)
+    expect((await listNotifications(ada.ctx)).notifications).toHaveLength(1)
+    await Promise.all([employer.ctx.dispose(), ada.ctx.dispose()])
+  })
+
+  test("cannot delete someone else's notification, a missing one or a malformed id", async ({ playwright, baseURL }) => {
+    const { employer, ada, job } = await candidateWithNotifications(playwright, baseURL, 1)
+    const grace = await applyCandidate(playwright, baseURL, 'Grace Hopper', job.id, reactProfile(4))
+    const [adas] = (await listNotifications(ada.ctx)).notifications
+
+    expect((await deleteNotificationApi(grace.ctx, adas!.id)).status()).toBe(404)
+    expect((await deleteNotificationApi(employer.ctx, adas!.id)).status()).toBe(404)
+    expect((await deleteNotificationApi(ada.ctx, MISSING_ID)).status()).toBe(404)
+    expect((await deleteNotificationApi(ada.ctx, 'not-a-uuid')).status()).toBe(404)
+    expect((await listNotifications(ada.ctx)).notifications.map((n) => n.id)).toEqual([adas!.id])
+    await Promise.all([employer.ctx.dispose(), ada.ctx.dispose(), grace.ctx.dispose()])
+  })
+
+  test('paging stays consistent after a delete', async ({ playwright, baseURL }) => {
+    const { employer, ada } = await candidateWithNotifications(playwright, baseURL, 4)
+    const all = (await listNotifications(ada.ctx)).notifications
+    expect(all).toHaveLength(4)
+
+    const firstPage = await listNotifications(ada.ctx, { limit: '2' })
+    expect(firstPage.notifications.map((n) => n.id)).toEqual([all[0]!.id, all[1]!.id])
+    expect((await deleteNotificationApi(ada.ctx, firstPage.notifications[0]!.id)).status()).toBe(204)
+
+    const seen: string[] = []
+    let cursor: string | null = null
+    do {
+      const page = await listNotifications(ada.ctx, { limit: '2', ...(cursor && { cursor }) })
+      seen.push(...page.notifications.map((n) => n.id))
+      cursor = page.nextCursor
+    } while (cursor)
+    expect(seen).toEqual([all[1]!.id, all[2]!.id, all[3]!.id])
+    await Promise.all([employer.ctx.dispose(), ada.ctx.dispose()])
+  })
+})
+
+test.describe('clearing notifications', () => {
+  test("removes all of the caller's notifications and nobody else's", async ({ playwright, baseURL }) => {
+    const { employer, ada } = await candidateWithNotifications(playwright, baseURL, 3)
+    // The employer also holds one ("new application") that must survive Ada clearing hers.
+    expect(await unreadCountApi(employer.ctx)).toBe(1)
+    expect((await listNotifications(ada.ctx)).notifications).toHaveLength(3)
+
+    expect((await clearNotificationsApi(ada.ctx)).status()).toBe(204)
+    expect(await listNotifications(ada.ctx)).toEqual({ notifications: [], nextCursor: null, unreadCount: 0 })
+    expect(await unreadCountApi(employer.ctx)).toBe(1)
+    await Promise.all([employer.ctx.dispose(), ada.ctx.dispose()])
+  })
+
+  test('clearing an empty inbox is 204', async ({ playwright, baseURL }) => {
+    const employer = await newEmployer(playwright, baseURL)
+    expect((await clearNotificationsApi(employer.ctx)).status()).toBe(204)
+    expect((await clearNotificationsApi(employer.ctx)).status()).toBe(204)
+    expect((await listNotifications(employer.ctx)).notifications).toEqual([])
+    await employer.ctx.dispose()
   })
 })

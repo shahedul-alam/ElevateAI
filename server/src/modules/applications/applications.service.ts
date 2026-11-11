@@ -1,6 +1,9 @@
+import { env } from '../../config/env'
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import type { ApplicationStatus, Prisma } from '../../../generated/prisma/client'
+import { sendMail } from '../auth/mail.service'
+import { applicationStatusMail } from '../auth/mail.templates'
 import { createNotification } from '../notifications/notifications.service'
 import { receivedMessage, statusMessage } from '../notifications/notifications.messages'
 import { termNamesFor } from '../catalog/catalog.service'
@@ -21,7 +24,7 @@ import {
   toBreakdown,
   type Breakdown,
 } from '../matching/matching.service'
-import { ensureSummaries, ensureSummary } from './applicant-summary.service'
+import { enqueueSummaries, enqueueSummary } from './applicant-summary.queue'
 import { PIPELINE, type ApplicantsQuery, type EmployerApplicationsQuery } from './applications.schema'
 
 type ApplicantRow = Prisma.ApplicationGetPayload<{ include: typeof applicantInclude }>
@@ -86,7 +89,7 @@ export async function applyToJob(candidateId: string, jobId: string) {
       }
     })
     // After the commit and not awaited: the model call can never slow down or fail an application.
-    void ensureSummary(created.id)
+    enqueueSummary(created.id)
     return created
   } catch (err) {
     // Two simultaneous submits: the unique (job, candidate) constraint lets only one win.
@@ -195,7 +198,7 @@ async function presentApplicants(page: ApplicantRow[]) {
   )
 
   // Fills missing summaries in the background; they show up on the next refetch.
-  ensureSummaries(page.filter((a) => a.summary === null).map((a) => a.id))
+  enqueueSummaries(page.filter((a) => a.summary === null).map((a) => a.id))
 
   // Live, not frozen: employers reach the candidate on their current details.
   const contacts = page.map((a) => parseStoredContact(a.candidate.candidateProfile?.contact))
@@ -326,6 +329,7 @@ export async function changeApplicationStatus(employerId: string, id: string, to
     select: {
       status: true,
       candidateId: true,
+      candidate: { select: { email: true, emailNotifications: true, suspendedAt: true } },
       jobVersion: { select: { content: true } },
       job: { select: { employer: { select: { name: true, company: { select: { name: true } } } } } },
     },
@@ -335,7 +339,9 @@ export async function changeApplicationStatus(employerId: string, id: string, to
     throw new HttpError(409, `Cannot move an application from ${application.status} to ${to}`)
   }
 
-  return prisma.$transaction(async (tx) => {
+  const employer = application.job.employer
+  const message = statusMessage(to, parseStoredJob(application.jobVersion.content).title, employer.company?.name ?? employer.name)
+  const result = await prisma.$transaction(async (tx) => {
     // The status guard keeps two simultaneous changes from both applying.
     const { count } = await tx.application.updateMany({
       where: { id, status: application.status },
@@ -346,14 +352,27 @@ export async function changeApplicationStatus(employerId: string, id: string, to
       data: { applicationId: id, fromStatus: application.status, toStatus: to },
     })
     // Same transaction as the move, and the status guard above means once per real change.
-    const employer = application.job.employer
     await createNotification(tx, {
       userId: application.candidateId,
       type: 'application_status',
       applicationId: id,
-      ...statusMessage(to, parseStoredJob(application.jobVersion.content).title, employer.company?.name ?? employer.name),
+      ...message,
       link: '/applications',
     })
     return { id, status: to }
   })
+
+  // Only after the commit, so a rollback or the 409 race never emails; sendMail itself never throws.
+  const { candidate } = application
+  if (candidate.emailNotifications && !candidate.suspendedAt) {
+    sendMail({
+      to: candidate.email,
+      ...applicationStatusMail({
+        ...message,
+        url: `${env.CLIENT_ORIGIN}/applications`,
+        settingsUrl: `${env.CLIENT_ORIGIN}/account`,
+      }),
+    })
+  }
+  return result
 }

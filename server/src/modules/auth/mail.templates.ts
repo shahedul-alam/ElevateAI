@@ -58,3 +58,14 @@ export const existingAccountMail = (loginUrl: string, resetUrl: string) =>
     body: `Someone tried to create an ElevateAI account with this email address. If it was you, log in instead (${loginUrl}) or reset your password if you forgot it (${resetUrl}).`,
     footer: 'If it was not you, you can safely ignore this email.',
   })
+
+/** `title` and `body` come from `statusMessage`, so the email and the in-app notification read the same. */
+export const applicationStatusMail = ({ title, body, url, settingsUrl }: { title: string; body: string; url: string; settingsUrl: string }) =>
+  render({
+    // Subjects are headers: no line breaks, whatever the job title holds.
+    subject: title.replace(/\s+/g, ' '),
+    heading: title,
+    body,
+    button: { label: 'View application', url },
+    footer: `You get this email because your application status changed. You can turn these emails off at ${settingsUrl}`,
+  })

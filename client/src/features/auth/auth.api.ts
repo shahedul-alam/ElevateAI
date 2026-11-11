@@ -19,6 +19,11 @@ export async function withdrawAiConsentRequest() {
   await api.delete('/me/ai-consent')
 }
 
+export async function setEmailNotificationsRequest(enabled: boolean) {
+  const { data } = await api.put<{ emailNotifications: boolean }>('/me/email-notifications', { enabled })
+  return data.emailNotifications
+}
+
 export const PENDING_EMAIL_KEY = 'pendingEmail'
 
 const callback =(path: string) => `${window.location.origin}${path}`
@@ -39,11 +44,6 @@ export async function resendVerificationRequest(email: string) {
   await api.post('/auth/send-verification-email', { email, callbackURL: callback('/verify-email') })
 }
 
-export async function signOutRequest() {
-  await api.post('/auth/sign-out')
-}
-
-export async function fetchMe() {
 /** Starts Google sign-in. A role means "create the account if new" (/register); without one only existing users get in. */
 export async function googleSignIn(role?: 'candidate' | 'employer') {
   const { data } = await api.post<{ url: string }>('/auth/sign-in/social', {
@@ -56,6 +56,11 @@ export async function googleSignIn(role?: 'candidate' | 'employer') {
   window.location.assign(data.url)
 }
 
+export async function signOutRequest() {
+  await api.post('/auth/sign-out')
+}
+
+export async function fetchMe() {
   const { data } = await api.get<{ user: AuthUser }>('/me')
   return data.user
 }

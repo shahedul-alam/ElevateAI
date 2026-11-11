@@ -1,6 +1,7 @@
 import { createApp } from './app'
 import { connectDb, disconnectDb } from './config/db'
 import { env } from './config/env'
+import { startWorkers, stopWorkers } from './config/queues'
 import { ensureAdmin } from './modules/auth/auth.service'
 
 const app = createApp()
@@ -17,8 +18,12 @@ if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD) {
 }
 const server = app.listen(env.PORT, () => console.log(`Server listening on http://localhost:${env.PORT}`))
 
+// Summary worker plus the 6-hourly notification prune (BullMQ scheduler). Not fatal if Redis is down at boot.
+await startWorkers().catch((err) => console.error('Could not start workers:', err))
+
 async function shutdown() {
   server.close()
+  await stopWorkers().catch(() => {})
   await disconnectDb()
   process.exit(0)
 }

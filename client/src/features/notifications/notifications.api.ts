@@ -2,7 +2,7 @@ import { api } from '@/lib/api'
 
 export type AppNotification = {
   id: string
-  type: 'application_status' | 'application_received'
+  type: 'application_status' | 'application_received' | 'moderation'
   title: string
   body: string
   /** An internal path built by the server. */
@@ -28,3 +28,7 @@ export async function fetchNotifications(cursor?: string) {
 export const markReadRequest = (id: string) => api.post(`/notifications/${id}/read`)
 
 export const markAllReadRequest = () => api.post('/notifications/read-all')
+
+export const deleteNotificationRequest = (id: string) => api.delete(`/notifications/${id}`)
+
+export const clearNotificationsRequest = () => api.delete('/notifications')

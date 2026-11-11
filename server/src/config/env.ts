@@ -10,6 +10,8 @@ const schema = z.object({
   // Number of reverse proxies in front of the API (0 = none). Express then takes the client IP from
   // X-Forwarded-For at exactly that many hops; never use "true", which trusts a spoofable header.
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
+  // Redis for BullMQ queues and shared rate limits. Use a different DB index (/1, /2) per stack.
+  REDIS_URL: z.string().min(1).default('redis://localhost:6379/0'),
   // Outgoing mail (verification, password reset). Without SMTP_URL, mails are printed to the console.
   SMTP_URL: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).default('ElevateAI <no-reply@elevateai.local>'),

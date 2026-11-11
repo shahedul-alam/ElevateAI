@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { moderationMessage } from '../notifications/notifications.messages'
-import { adminJobsQuerySchema, adminUsersQuerySchema, suspensionSchema } from './admin.schema'
+import { adminAuditQuerySchema, adminJobsQuerySchema, adminUsersQuerySchema, deleteUserSchema, suspensionSchema } from './admin.schema'
 
 test('a suspension needs a real reason', () => {
   expect(suspensionSchema.safeParse({}).success).toBe(false)
@@ -24,4 +24,11 @@ test('moderation messages name the job and carry the reason', () => {
   expect(s.title).toBe('Job suspended: Dev')
   expect(s.body).toContain('Reason: Spam')
   expect(moderationMessage('restored', 'Dev').title).toBe('Job restored: Dev')
+})
+
+test('delete needs a confirmation email and the audit query only takes known actions', () => {
+  expect(deleteUserSchema.safeParse({}).success).toBe(false)
+  expect(deleteUserSchema.parse({ confirmEmail: ' a@b.co ' }).confirmEmail).toBe('a@b.co')
+  expect(adminAuditQuerySchema.safeParse({ action: 'user.delete' }).success).toBe(true)
+  expect(adminAuditQuerySchema.safeParse({ action: 'nope' }).success).toBe(false)
 })

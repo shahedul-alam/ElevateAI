@@ -9,17 +9,22 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
+  AUDIT_FILTERS,
   JOB_FILTERS,
   USER_FILTERS,
   type AdminJob,
   type AdminUser,
+  type AuditFilter,
   type JobFilter,
   type UserFilter,
 } from '@/features/admin/admin.api'
+import { DeleteUserDialog } from '@/features/admin/delete-user-dialog'
 import { SuspendDialog } from '@/features/admin/suspend-dialog'
 import {
   useAdminJobs,
   useAdminUsers,
+  useAuditLog,
+  useDeleteUser,
   useOverview,
   useRestoreJob,
   useRestoreUser,
@@ -31,9 +36,9 @@ import { oneOf } from '@/features/jobs/employer-job-filters'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { getApiError } from '@/lib/api'
 
-const TABS = ['overview', 'users', 'jobs', 'companies'] as const
+const TABS = ['overview', 'users', 'jobs', 'companies', 'audit'] as const
 type Tab = (typeof TABS)[number]
-const TAB_LABEL: Record<Tab, string> = { overview: 'Overview', users: 'Users', jobs: 'Jobs', companies: 'Companies' }
+const TAB_LABEL: Record<Tab, string> = { overview: 'Overview', users: 'Users', jobs: 'Jobs', companies: 'Companies', audit: 'Audit' }
 
 export default function Admin() {
   return (
@@ -78,6 +83,7 @@ function AdminPage() {
         {tab === 'users' && <UsersTab />}
         {tab === 'jobs' && <JobsTab />}
         {tab === 'companies' && <CompaniesTab />}
+        {tab === 'audit' && <AuditTab />}
       </div>
     </main>
   )
@@ -135,9 +141,11 @@ function ListControls<F extends string>({
   label,
   options,
   state,
+  labelOf,
 }: {
   label: string
   options: readonly F[]
+  labelOf?: (o: F) => string
   state: ReturnType<typeof useListFilters<F>>
 }) {
   return (
@@ -159,7 +167,7 @@ function ListControls<F extends string>({
             aria-pressed={state.filters.filter === o}
             onClick={() => state.onFilter(o)}
           >
-            {o === 'all' ? 'All' : o.charAt(0).toUpperCase() + o.slice(1)}
+            {labelOf ? labelOf(o) : o === 'all' ? 'All' : o.charAt(0).toUpperCase() + o.slice(1)}
           </Button>
         ))}
       </div>
@@ -187,6 +195,7 @@ function SuspendedNote({ reason }: { reason: string | null }) {
 }
 
 type Target = { id: string; name: string }
+type DeleteTarget = Target & { email: string; role: string }
 
 function UsersTab() {
   const state = useListFilters<UserFilter>(USER_FILTERS)
@@ -194,6 +203,8 @@ function UsersTab() {
   const me = useAuthStore((s) => s.user?.id)
   const suspend = useSuspendUser()
   const restore = useRestoreUser()
+  const remove = useDeleteUser()
+  const [deleting, setDeleting] = useState<DeleteTarget | null>(null)
   const [suspending, setSuspending] = useState<Target | null>(null)
   const [restoring, setRestoring] = useState<Target | null>(null)
   const rows = users.data?.pages.flatMap((p) => p.users) ?? []
@@ -223,18 +234,29 @@ function UsersTab() {
                     </p>
                     {u.suspendedAt && <SuspendedNote reason={u.suspendedReason} />}
                   </div>
-                  {u.suspendedAt ? (
-                    <Button variant="outline" size="sm" onClick={() => setRestoring({ id: u.id, name: u.name })}>
-                      Restore
-                    </Button>
-                  ) : (
-                    u.role !== 'admin' &&
-                    u.id !== me && (
-                      <Button variant="outline" size="sm" onClick={() => setSuspending({ id: u.id, name: u.name })}>
-                        Suspend
+                  <div className="flex gap-2">
+                    {u.suspendedAt ? (
+                      <Button variant="outline" size="sm" onClick={() => setRestoring({ id: u.id, name: u.name })}>
+                        Restore
                       </Button>
-                    )
-                  )}
+                    ) : (
+                      u.role !== 'admin' &&
+                      u.id !== me && (
+                        <Button variant="outline" size="sm" onClick={() => setSuspending({ id: u.id, name: u.name })}>
+                          Suspend
+                        </Button>
+                      )
+                    )}
+                    {u.role !== 'admin' && u.id !== me && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleting({ id: u.id, name: u.name, email: u.email, role: u.role })}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             </li>
@@ -258,6 +280,26 @@ function UsersTab() {
               onSuccess: () => toast.success('User suspended'),
               onError: fail('suspend user'),
               onSettled: () => setSuspending(null),
+            },
+          )
+        }
+      />
+      <DeleteUserDialog
+        key={deleting?.id ?? 'none-delete'}
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        name={deleting?.name ?? ''}
+        email={deleting?.email ?? ''}
+        role={deleting?.role ?? ''}
+        pending={remove.isPending}
+        onConfirm={(confirmEmail) =>
+          deleting &&
+          remove.mutate(
+            { id: deleting.id, confirmEmail },
+            {
+              onSuccess: () => toast.success('User deleted'),
+              onError: fail('delete user'),
+              onSettled: () => setDeleting(null),
             },
           )
         }
@@ -453,6 +495,49 @@ function CompaniesTab() {
         loading={companies.isFetchingNextPage}
         onClick={() => companies.fetchNextPage()}
       />
+    </>
+  )
+}
+
+function AuditTab() {
+  const state = useListFilters<AuditFilter>(AUDIT_FILTERS)
+  const audit = useAuditLog(state.filters)
+  const rows = audit.data?.pages.flatMap((p) => p.entries) ?? []
+
+  return (
+    <>
+      <ListControls
+        label="audit log"
+        options={AUDIT_FILTERS}
+        state={state}
+        labelOf={(o) => (o === 'all' ? 'All' : o.replace('.', ' '))}
+      />
+      {audit.isPending ? (
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      ) : audit.isError ? (
+        <p className="text-sm text-destructive">Could not load the audit log.</p>
+      ) : rows.length === 0 ? (
+        <p className="text-muted-foreground">No entries match.</p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {rows.map((e) => (
+            <li key={e.id}>
+              <Card>
+                <CardContent>
+                  <p className="font-medium">
+                    {e.action.replace('.', ' ')}: <span className="break-all">{e.targetLabel}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    by {e.actorEmail} · {new Date(e.createdAt).toLocaleString()}
+                  </p>
+                  {e.reason && <p className="mt-1 text-xs">{e.reason}</p>}
+                </CardContent>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+      <LoadMore show={!!audit.hasNextPage} loading={audit.isFetchingNextPage} onClick={() => audit.fetchNextPage()} />
     </>
   )
 }

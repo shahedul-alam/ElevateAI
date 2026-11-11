@@ -321,7 +321,7 @@ test.describe('applications page', () => {
     await registerUser(page.request)
     await page.goto('/applications')
     await expect(page.getByText('You have not applied to any jobs yet.')).toBeVisible()
-    await page.getByRole('link', { name: 'Browse jobs' }).click()
+    await page.getByRole('main').getByRole('link', { name: 'Browse jobs' }).click()
     await expect(page).toHaveURL(/\/jobs$/)
   })
 

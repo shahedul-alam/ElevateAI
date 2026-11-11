@@ -66,5 +66,5 @@ export const removeMine: RequestHandler = async (req, res) => {
 }
 
 export const verify: RequestHandler = async (req, res) => {
-  res.json(await setVerified(String(req.params.id), req.body.verified))
+  res.json(await setVerified(req.auth!.user.id, String(req.params.id), req.body.verified))
 }

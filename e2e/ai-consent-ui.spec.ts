@@ -7,7 +7,7 @@ const DRAFT = '/api/employer/jobs/ai-draft'
 test.describe('AI privacy notice page', () => {
   test('renders the notice and is reachable from the footer', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('link', { name: 'AI privacy notice' }).click()
+    await page.getByRole('contentinfo').getByRole('link', { name: 'AI privacy notice' }).click()
     await expect(page).toHaveURL(/\/privacy$/)
     await expect(page.getByRole('heading', { name: 'AI privacy notice', level: 1 })).toBeVisible()
   })

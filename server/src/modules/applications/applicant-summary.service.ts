@@ -5,7 +5,7 @@ import { hasCurrentConsent } from '../ai/ai-consent'
 import { extractObject } from '../ai/ai.provider'
 import { parseStoredProfile } from '../candidate-profile/candidate-profile.schema'
 import { termNamesFor } from '../catalog/catalog.service'
-import { LAZY_BATCH, SUMMARY_VERSION } from './applicant-summary.config'
+import { SUMMARY_VERSION } from './applicant-summary.config'
 import { buildSummaryInput, cleanSummary } from './applicant-summary.input'
 import { summarySchema } from './applicant-summary.schema'
 
@@ -17,13 +17,8 @@ Rules:
 - Do not mention or infer age, gender, nationality, ethnicity, religion, health, family status, appearance or career gaps. Do not mention names, employers, schools, dates, emails, phone numbers or links.
 - Neutral wording. Say "the candidate" rather than "he" or "she".`
 
-// shortcut: in-memory set, per instance and lost on restart; replace with a queue (BullMQ) when Redis arrives.
-const inFlight = new Set<string>()
-
-/** Writes the summary for one application once. Never throws: apply and the employer lists must not depend on it. */
+/** Writes the summary for one application once (run by the summary queue worker). Never throws; a failure is retried by the lazy list path. */
 export async function ensureSummary(applicationId: string) {
-  if (inFlight.has(applicationId)) return
-  inFlight.add(applicationId)
   try {
     const app = await prisma.application.findUnique({
       where: { id: applicationId },
@@ -57,12 +52,5 @@ export async function ensureSummary(applicationId: string) {
   } catch (err) {
     // 503 = AI off or no key: expected, stay quiet.
     if (!(err instanceof HttpError && err.status === 503)) console.error('Applicant summary failed:', applicationId, err)
-  } finally {
-    inFlight.delete(applicationId)
   }
-}
-
-/** Lazy path for employer lists: starts a few missing summaries in the background, never waits for them. */
-export function ensureSummaries(applicationIds: string[]) {
-  for (const id of applicationIds.slice(0, LAZY_BATCH)) void ensureSummary(id)
 }

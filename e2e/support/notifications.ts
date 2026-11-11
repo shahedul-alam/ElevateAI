@@ -24,4 +24,8 @@ export async function unreadCountApi(request: APIRequestContext) {
 
 export const markReadApi = (request: APIRequestContext, id: string) => request.post(`/api/notifications/${id}/read`)
 
-export const markAllReadApi = (request: APIRequestContext) => request.post('/api/notifications/read-all')
+export const deleteNotificationApi = (request: APIRequestContext, id: string) => request.delete(`/api/notifications/${id}`)
+
+export const clearNotificationsApi = (request: APIRequestContext) => request.delete('/api/notifications')
+
+export const markAllReadApi =(request: APIRequestContext) => request.post('/api/notifications/read-all')

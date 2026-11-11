@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { receivedMessage, statusMessage } from './notifications.messages'
+import { retentionCutoffs } from './notifications.retention'
 import { notificationsQuerySchema } from './notifications.schema'
 
 test('every stage has a message naming the job', () => {
@@ -33,4 +34,11 @@ test('list query bounds', () => {
   expect(notificationsQuerySchema.safeParse({ limit: '0' }).success).toBe(false)
   expect(notificationsQuerySchema.safeParse({ limit: '51' }).success).toBe(false)
   expect(notificationsQuerySchema.safeParse({ cursor: 'x' }).success).toBe(false)
+})
+
+test('retention: read entries expire after 30 days, everything after 90', () => {
+  const now = new Date('2026-06-30T12:00:00Z')
+  const { readBefore, anyBefore } = retentionCutoffs(now)
+  expect(readBefore.toISOString()).toBe('2026-05-31T12:00:00.000Z')
+  expect(anyBefore.toISOString()).toBe('2026-04-01T12:00:00.000Z')
 })

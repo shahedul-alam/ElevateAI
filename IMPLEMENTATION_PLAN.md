@@ -83,7 +83,7 @@ e2e/            Playwright
 ```
 
 - Zod schemas in `packages/shared` validate API requests on the server and forms on the client (React Hook Form resolver). Prisma generates DB types from `schema.prisma`; Zod schemas stay the source of truth for API/form validation, and `jsonb` columns are parsed with the shared Zod schemas at the boundary.
-- Auth: Better Auth with the Prisma adapter, email+password and Google OAuth. Better Auth issues cookie sessions; JWT is only used if a stateless token is needed (e.g. the WebSocket handshake). Roles `candidate | employer | admin` live on the user row; the API enforces them via `requireRole()` middleware. Admin is seeded, never self-signup.
+- Auth: Better Auth with the Prisma adapter, email+password and Google OAuth (both built; Google creates new accounts only from `/register`, with the chosen role, and signs in existing users from `/login`). Better Auth issues cookie sessions; JWT is only used if a stateless token is needed (e.g. the WebSocket handshake). Roles `candidate | employer | admin` live on the user row; the API enforces them via `requireRole()` middleware. Admin is seeded, never self-signup.
 - Because client (Vercel) and API (other host) are on different origins, configure cross-site cookies (`SameSite=None; Secure`) or put both behind one parent domain (recommended, e.g. `app.` and `api.example.com`) and set strict CORS to that origin.
 - AI: Vercel AI SDK `generateObject` with Zod output schemas, with a provider abstraction (Claude primary, OpenAI fallback unless 1c decides OpenAI first) and per-call timeouts and retries. Feature list, models and rules are in section 1c.
 

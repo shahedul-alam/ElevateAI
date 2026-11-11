@@ -15,7 +15,7 @@ test.describe('employer job pages access', () => {
     await registerUser(page.request, { role: 'candidate' })
     await page.goto('/employer/jobs')
     await expect(page.getByText('Posting jobs is for employer accounts.')).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Post a job' })).toHaveCount(0)
+    await expect(page.getByRole('main').getByRole('link', { name: 'Post a job' })).toHaveCount(0)
   })
 })
 
@@ -26,7 +26,7 @@ test.describe('posting a job', () => {
 
     await page.goto('/employer/jobs')
     await expect(page.getByText('You have not posted any jobs yet.')).toBeVisible()
-    await page.getByRole('link', { name: 'Post a job' }).click()
+    await page.getByRole('main').getByRole('link', { name: 'Post a job' }).click()
     await expect(page).toHaveURL(/\/employer\/jobs\/new$/)
 
     await page.getByLabel('Title', { exact: true }).fill(title)

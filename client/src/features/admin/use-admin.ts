@@ -3,7 +3,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { JOBS_KEY } from '@/features/jobs/use-jobs'
 
 import {
+  deleteUserRequest,
   fetchAdminJobs,
+  fetchAudit,
   fetchAdminUsers,
   fetchOverview,
   restoreJobRequest,
@@ -11,6 +13,7 @@ import {
   suspendJobRequest,
   suspendUserRequest,
   type AdminListFilters,
+  type AuditFilter,
   type JobFilter,
   type UserFilter,
 } from './admin.api'
@@ -23,6 +26,14 @@ export const useAdminUsers = (filters: AdminListFilters<UserFilter>) =>
   useInfiniteQuery({
     queryKey: [...ADMIN_KEY, 'users', filters],
     queryFn: ({ pageParam }) => fetchAdminUsers(filters, pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  })
+
+export const useAuditLog = (filters: AdminListFilters<AuditFilter>) =>
+  useInfiniteQuery({
+    queryKey: [...ADMIN_KEY, 'audit', filters],
+    queryFn: ({ pageParam }) => fetchAudit(filters, pageParam),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })
@@ -51,3 +62,4 @@ export const useSuspendUser = () => useModeration(suspendUserRequest, false)
 export const useRestoreUser = () => useModeration(restoreUserRequest, false)
 export const useSuspendJob = () => useModeration(suspendJobRequest, true)
 export const useRestoreJob = () => useModeration(restoreJobRequest, true)
+export const useDeleteUser = () => useModeration(deleteUserRequest, true)

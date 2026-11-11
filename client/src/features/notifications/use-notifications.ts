@@ -2,6 +2,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { useAuthStore } from '@/features/auth/auth.store'
 import {
+  clearNotificationsRequest,
+  deleteNotificationRequest,
   fetchNotifications,
   fetchUnreadCount,
   markAllReadRequest,
@@ -48,3 +50,5 @@ function useNotificationMutation<T>(mutationFn: (input: T) => Promise<unknown>) 
 
 export const useMarkRead = () => useNotificationMutation(markReadRequest)
 export const useMarkAllRead = () => useNotificationMutation(markAllReadRequest)
+export const useDeleteNotification = () => useNotificationMutation(deleteNotificationRequest)
+export const useClearNotifications = () => useNotificationMutation(clearNotificationsRequest)

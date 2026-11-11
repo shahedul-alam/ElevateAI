@@ -82,3 +82,42 @@ export async function restoreJobRequest(id: string) {
   const { data } = await api.delete<{ job: AdminJob }>(`/admin/jobs/${id}/suspension`)
   return data.job
 }
+
+export const AUDIT_FILTERS = [
+  'all',
+  'user.suspend',
+  'user.restore',
+  'user.delete',
+  'job.suspend',
+  'job.restore',
+  'company.verify',
+  'company.unverify',
+] as const
+export type AuditFilter = (typeof AUDIT_FILTERS)[number]
+
+export type AuditEntry = {
+  id: string
+  createdAt: string
+  actorId: string
+  actorEmail: string
+  action: Exclude<AuditFilter, 'all'>
+  targetType: string
+  targetId: string
+  targetLabel: string
+  reason: string | null
+}
+
+export async function fetchAudit(f: AdminListFilters<AuditFilter>, cursor?: string) {
+  const { data } = await api.get<{ entries: AuditEntry[]; nextCursor: string | null }>('/admin/audit', {
+    params: {
+      ...(f.q && { q: f.q }),
+      ...(f.filter !== 'all' && { action: f.filter }),
+      ...(cursor && { cursor }),
+    },
+  })
+  return data
+}
+
+export async function deleteUserRequest(input: { id: string; confirmEmail: string }) {
+  await api.delete(`/admin/users/${input.id}`, { data: { confirmEmail: input.confirmEmail } })
+}

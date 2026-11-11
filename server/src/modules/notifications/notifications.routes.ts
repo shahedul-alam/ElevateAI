@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { requireUuidParam, validateQuery } from '../../middleware/validate'
 import { requireAuth } from '../auth/auth.middleware'
-import { countMine, listMine, readAll, readOne } from './notifications.controller'
+import { countMine, listMine, readAll, readOne, removeAll, removeOne } from './notifications.controller'
 import { notificationsQuerySchema } from './notifications.schema'
 
 export const notificationsRouter = Router()
@@ -12,3 +12,5 @@ notificationsRouter.get('/notifications', validateQuery(notificationsQuerySchema
 notificationsRouter.get('/notifications/unread-count', countMine)
 notificationsRouter.post('/notifications/read-all', readAll)
 notificationsRouter.post('/notifications/:id/read', requireUuidParam(), readOne)
+notificationsRouter.delete('/notifications', removeAll)
+notificationsRouter.delete('/notifications/:id', requireUuidParam(), removeOne)

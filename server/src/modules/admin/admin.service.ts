@@ -4,6 +4,8 @@ import type { Prisma } from '../../../generated/prisma/client'
 import { parseStoredJob } from '../jobs/jobs.schema'
 import { createNotification } from '../notifications/notifications.service'
 import { moderationMessage } from '../notifications/notifications.messages'
+import { recordAudit } from './admin.audit'
+import { deleteIfUnused } from '../candidate-profile/candidate-photo'
 import type { AdminJobsQuery, AdminUsersQuery } from './admin.schema'
 
 export async function getOverview() {
@@ -65,21 +67,60 @@ export async function suspendUser(adminId: string, id: string, reason: string) {
   if (target.role === 'admin') throw new HttpError(409, 'Admins cannot be suspended')
   return prisma.$transaction(async (tx) => {
     await tx.session.deleteMany({ where: { userId: id } })
-    return tx.user.update({
+    const row = await tx.user.update({
       where: { id },
       data: { suspendedAt: new Date(), suspendedReason: reason },
       select: userSelect,
     })
+    await recordAudit(tx, adminId, { action: 'user.suspend', targetId: id, targetLabel: row.email, reason })
+    return row
   })
 }
 
-export async function restoreUser(id: string) {
-  const { count } = await prisma.user.updateMany({
-    where: { id },
-    data: { suspendedAt: null, suspendedReason: null },
+export async function restoreUser(adminId: string, id: string) {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.user.updateMany({
+      where: { id },
+      data: { suspendedAt: null, suspendedReason: null },
+    })
+    if (count === 0) throw new HttpError(404, 'User not found')
+    const row = await tx.user.findUniqueOrThrow({ where: { id }, select: userSelect })
+    await recordAudit(tx, adminId, { action: 'user.restore', targetId: id, targetLabel: row.email })
+    return row
   })
-  if (count === 0) throw new HttpError(404, 'User not found')
-  return prisma.user.findUniqueOrThrow({ where: { id }, select: userSelect })
+}
+
+/** Hard delete: every User relation cascades. Needs the exact email as confirmation; the audit row outlives the user. */
+export async function deleteUser(adminId: string, id: string, confirmEmail: string) {
+  if (id === adminId) throw new HttpError(409, 'You cannot delete yourself')
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      email: true,
+      role: true,
+      candidateProfile: { select: { photoId: true } },
+      applications: { select: { photoId: true } },
+      _count: { select: { jobs: true, applications: true } },
+    },
+  })
+  if (!target) throw new HttpError(404, 'User not found')
+  if (target.role === 'admin') throw new HttpError(409, 'Admins cannot be deleted')
+  if (confirmEmail.toLowerCase() !== target.email.toLowerCase()) {
+    throw new HttpError(400, 'Confirmation email does not match')
+  }
+  const photoIds = new Set<string>()
+  for (const p of [target.candidateProfile?.photoId, ...target.applications.map((a) => a.photoId)]) if (p) photoIds.add(p)
+  await prisma.$transaction(async (tx) => {
+    await recordAudit(tx, adminId, {
+      action: 'user.delete',
+      targetId: id,
+      targetLabel: target.email,
+      reason: `${target.role}; ${target._count.jobs} jobs, ${target._count.applications} applications deleted`,
+    })
+    await tx.user.delete({ where: { id } })
+  })
+  // shortcut: blobs of other users' applications to a deleted employer's jobs stay until their own cleanup; upgrade with a sweep job
+  await Promise.all([...photoIds].map(deleteIfUnused))
 }
 
 const jobInclude = {
@@ -126,7 +167,7 @@ export async function listJobs(query: AdminJobsQuery) {
 }
 
 /** Suspends or restores a job and tells the employer, atomically with the change. */
-export async function setJobSuspension(id: string, reason: string | null) {
+export async function setJobSuspension(adminId: string, id: string, reason: string | null) {
   const job = await prisma.job.findUnique({ where: { id }, include: jobInclude })
   if (!job) throw new HttpError(404, 'Job not found')
   const suspending = reason !== null
@@ -139,6 +180,12 @@ export async function setJobSuspension(id: string, reason: string | null) {
       where: { id },
       data: suspending ? { suspendedAt: new Date(), suspendedReason: reason } : { suspendedAt: null, suspendedReason: null },
       include: jobInclude,
+    })
+    await recordAudit(tx, adminId, {
+      action: suspending ? 'job.suspend' : 'job.restore',
+      targetId: id,
+      targetLabel: title,
+      reason,
     })
     await createNotification(tx, {
       userId: job.employerId,

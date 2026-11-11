@@ -12,6 +12,7 @@
     "db:migrate": "bunx --bun prisma migrate dev",
     "db:deploy": "bunx --bun prisma migrate deploy",
     "db:seed-admin": "bun scripts/seed-admin.ts",
+    "notifications:prune": "bun scripts/prune-notifications.ts",
     "db:seed-catalog": "bun scripts/seed-catalog.ts",
     "test:db:setup": "bun scripts/test-db.ts setup",
     "test:db:reset": "bun scripts/test-db.ts reset"
@@ -22,12 +23,15 @@
     "@prisma/client": "^7.0.0",
     "ai": "^7.0.164",
     "better-auth": "^1.7.13",
+    "bullmq": "^6.7.4",
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
     "mammoth": "^1.13.0",
     "nodemailer": "^10.3.1",
+    "rate-limit-redis": "^6.0.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {

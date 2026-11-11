@@ -59,6 +59,8 @@ export default defineConfig({
         // Tests must never reach OpenAI: AI calls return each feature's canned output (AI_STUB), and the specs can
         // force a provider failure with the __stub_fail__ marker. The verification stack below keeps AI off (503).
         AI_STUB: 'true',
+        // Own Redis DB index, never the developer's /0.
+        REDIS_URL: 'redis://localhost:6379/1',
         ADMIN_EMAIL: 'admin@e2e.test',
         ADMIN_PASSWORD: 'e2e-admin-password-123',
       },
@@ -77,7 +79,7 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: 'bun run test:db:setup && bun src/index.ts',
+      command: 'bun run test:db:setup && bun run db:seed-catalog && bun src/index.ts',
       cwd: './server',
       url: `http://localhost:${VERIFY_SERVER_PORT}/api/health`,
       reuseExistingServer: false,
@@ -94,6 +96,7 @@ export default defineConfig({
         SMTP_URL: `smtp://127.0.0.1:${MAIL_SMTP_PORT}`,
         // Tests must never reach OpenAI: every AI call answers 503 (the apply flow also fires a background summary).
         AI_ENABLED: 'false',
+        REDIS_URL: 'redis://localhost:6379/2',
         ADMIN_EMAIL: 'admin@e2e.test',
         ADMIN_PASSWORD: 'e2e-admin-password-123',
       },

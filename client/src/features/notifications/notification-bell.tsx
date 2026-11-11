@@ -1,7 +1,8 @@
-import { Bell } from 'lucide-react'
+import { Bell, X } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -12,7 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { AppNotification } from './notifications.api'
-import { useMarkAllRead, useMarkRead, useNotifications, useUnreadCount } from './use-notifications'
+import {
+  useClearNotifications,
+  useDeleteNotification,
+  useMarkAllRead,
+  useMarkRead,
+  useNotifications,
+  useUnreadCount,
+} from './use-notifications'
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['day', 86_400_000],
@@ -32,11 +40,14 @@ const isInternal = (link: string) => link.startsWith('/') && !link.startsWith('/
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const navigate = useNavigate()
   const count = useUnreadCount()
   const list = useNotifications(open)
   const markRead = useMarkRead()
   const markAll = useMarkAllRead()
+  const remove = useDeleteNotification()
+  const clear = useClearNotifications()
   const unread = count.data ?? 0
   const items = list.data?.pages.flatMap((p) => p.notifications) ?? []
 
@@ -46,6 +57,7 @@ export function NotificationBell() {
   }
 
   return (
+    <>
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
@@ -68,16 +80,31 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="max-h-96 w-80 overflow-y-auto">
         <DropdownMenuLabel className="flex items-center justify-between">
           Notifications
-          {unread > 0 && (
-            <button
-              type="button"
-              className="text-xs font-normal underline disabled:opacity-50"
-              disabled={markAll.isPending}
-              onClick={() => markAll.mutate(undefined)}
-            >
-              Mark all as read
-            </button>
-          )}
+          <span className="flex gap-3">
+            {unread > 0 && (
+              <button
+                type="button"
+                className="text-xs font-normal underline disabled:opacity-50"
+                disabled={markAll.isPending}
+                onClick={() => markAll.mutate(undefined)}
+              >
+                Mark all as read
+              </button>
+            )}
+            {items.length > 0 && (
+              <button
+                type="button"
+                className="text-xs font-normal underline"
+                onClick={() => {
+                  // The dialog lives outside the menu, so close the menu first.
+                  setOpen(false)
+                  setConfirmingClear(true)
+                }}
+              >
+                Clear all
+              </button>
+            )}
+          </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {list.isPending ? (
@@ -101,6 +128,19 @@ export function NotificationBell() {
                 <span className="text-xs text-muted-foreground">{n.body}</span>
                 <span className="text-xs text-muted-foreground">{timeAgo(n.createdAt)}</span>
               </span>
+              <button
+                type="button"
+                aria-label="Delete notification"
+                className="ml-auto rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={(e) => {
+                  // Do not trigger the item's select (mark read and navigate).
+                  e.stopPropagation()
+                  e.preventDefault()
+                  remove.mutate(n.id)
+                }}
+              >
+                <X className="size-3.5" aria-hidden="true" />
+              </button>
             </DropdownMenuItem>
           ))
         )}
@@ -118,5 +158,17 @@ export function NotificationBell() {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    <ConfirmDialog
+      open={confirmingClear}
+      onOpenChange={setConfirmingClear}
+      title="Delete all notifications?"
+      description="This removes every notification in your inbox and cannot be undone."
+      confirmLabel="Delete all"
+      pendingLabel="Deleting..."
+      pending={clear.isPending}
+      destructive
+      onConfirm={() => clear.mutate(undefined, { onSettled: () => setConfirmingClear(false) })}
+    />
+    </>
   )
 }

@@ -23,6 +23,8 @@ model User {
   // Admin moderation: set only by the admin endpoints (not a Better Auth input field).
   suspendedAt      DateTime?
   suspendedReason  String?
+  // Email me when my application status changes; set only by PUT /api/me/email-notifications.
+  emailNotifications Boolean        @default(true)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   sessions         Session[]
@@ -368,6 +370,7 @@ model Notification {
 
   @@index([userId, createdAt(sort: Desc)])
   @@index([userId, readAt])
+  @@index([createdAt])
   @@map("notification")
 }
 
@@ -405,4 +408,21 @@ model GapExplanation {
   @@unique([userId, profileVersionId, jobVersionId, engineVersion, promptVersion], map: "gapExplanation_key")
   @@index([userId, createdAt])
   @@map("gapExplanation")
+}
+
+/// Who did what in moderation. No foreign keys on purpose: deleting a user (or the admin) must not erase the trail,
+/// so the actor and target are stored as ids plus a text snapshot.
+model AdminAuditLog {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  actorId     String
+  actorEmail  String
+  action      String
+  targetType  String
+  targetId    String
+  targetLabel String
+  reason      String?
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("adminAuditLog")
 }

@@ -1,3 +1,4 @@
+import { recordAudit } from '../admin/admin.audit'
 import { prisma } from '../../config/db'
 import { HttpError } from '../../middleware/errors'
 import type { Prisma } from '../../../generated/prisma/client'
@@ -146,9 +147,17 @@ export async function listCompanies(query: CompanyListQuery) {
   }
 }
 
-export async function setVerified(id: string, verified: boolean) {
-  const { count } = await prisma.company.updateMany({ where: { id }, data: { verified } })
-  if (count === 0) throw new HttpError(404, 'Company not found')
+export async function setVerified(adminId: string, id: string, verified: boolean) {
+  await prisma.$transaction(async (tx) => {
+    const { count } = await tx.company.updateMany({ where: { id }, data: { verified } })
+    if (count === 0) throw new HttpError(404, 'Company not found')
+    const { name } = await tx.company.findUniqueOrThrow({ where: { id }, select: { name: true } })
+    await recordAudit(tx, adminId, {
+      action: verified ? 'company.verify' : 'company.unverify',
+      targetId: id,
+      targetLabel: name,
+    })
+  })
   return { id, verified }
 }
 

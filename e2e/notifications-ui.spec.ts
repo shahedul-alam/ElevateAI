@@ -3,6 +3,7 @@ import { registerUser } from './support/auth'
 import { applyCandidate } from './support/hiring'
 import { uniqueTitle } from './support/jobs'
 import { applyApi, newEmployer, publishReactJob, reactProfile, setStatus } from './support/matching'
+import { unreadCountApi } from './support/notifications'
 import { saveProfileApi } from './support/profile'
 
 const bell = (page: Page, unread: number) =>
@@ -136,5 +137,111 @@ test.describe('notification bell', () => {
     await bell(page, 0).click()
     await expect(page.getByText('No notifications yet.')).toBeVisible()
     await employer.ctx.dispose()
+  })
+})
+
+/** Signs the page in as a candidate who has one notification per stage move (under_review, technical_interview, ...). */
+async function candidateWithMoves(page: Page, playwright: Parameters<typeof newEmployer>[0], baseURL: string | undefined, moves: number) {
+  const employer = await newEmployer(playwright, baseURL)
+  const job = await publishReactJob(employer.ctx, 4, { title: uniqueTitle('Del') })
+  await registerUser(page.request, { role: 'candidate' })
+  await saveProfileApi(page.request, reactProfile(3))
+  const { id } = await applyApi(page.request, job.id)
+  for (const status of ['under_review', 'technical_interview', 'culture_fit'].slice(0, moves)) {
+    await setStatus(employer.ctx, id, status)
+  }
+  return employer
+}
+
+test.describe('deleting notifications from the bell', () => {
+  test('the delete button removes one item and updates the badge without opening or only reading it', async ({
+    page,
+    playwright,
+    baseURL,
+  }) => {
+    const employer = await candidateWithMoves(page, playwright, baseURL, 2)
+    await page.goto('/jobs')
+    await expect(bell(page, 2)).toBeVisible()
+    await bell(page, 2).click()
+
+    const newest = page.getByRole('menuitem').filter({ hasText: 'Technical interview' })
+    await newest.getByRole('button', { name: 'Delete notification' }).click()
+
+    await expect(newest).toHaveCount(0)
+    // The other item is still there and the menu is still open.
+    await expect(page.getByRole('menuitem').filter({ hasText: 'Under review' })).toBeVisible()
+    await expect(page).toHaveURL(/\/jobs$/)
+    // The bell is hidden from the accessibility tree while its menu is open.
+    await page.keyboard.press('Escape')
+    await expect(bell(page, 1)).toBeVisible()
+    await employer.ctx.dispose()
+  })
+
+  test('deleting the last item shows the empty state and hides "Clear all"', async ({ page, playwright, baseURL }) => {
+    const employer = await candidateWithMoves(page, playwright, baseURL, 1)
+    await page.goto('/jobs')
+    await bell(page, 1).click()
+    await page.getByRole('menuitem').getByRole('button', { name: 'Delete notification' }).click()
+    await expect(page.getByText('No notifications yet.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Clear all' })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(bell(page, 0)).toBeVisible()
+    await employer.ctx.dispose()
+  })
+})
+
+test.describe('clearing all notifications', () => {
+  test('is not offered for an empty inbox', async ({ page }) => {
+    await registerUser(page.request, { role: 'candidate' })
+    await page.goto('/')
+    await bell(page, 0).click()
+    await expect(page.getByText('No notifications yet.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Clear all' })).toHaveCount(0)
+  })
+
+  test('Cancel keeps everything, confirming removes it all', async ({ page, playwright, baseURL }) => {
+    const employer = await candidateWithMoves(page, playwright, baseURL, 3)
+    await page.goto('/jobs')
+    await bell(page, 3).click()
+    await page.getByRole('button', { name: 'Clear all' }).click()
+
+    const dialog = page.getByRole('alertdialog', { name: 'Delete all notifications?' })
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(bell(page, 3)).toBeVisible()
+    await bell(page, 3).click()
+    await expect(page.getByRole('menuitem')).toHaveCount(3)
+    await page.getByRole('button', { name: 'Clear all' }).click()
+
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete all' }).click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(bell(page, 0)).toBeVisible()
+    await bell(page, 0).click()
+    await expect(page.getByText('No notifications yet.')).toBeVisible()
+    await employer.ctx.dispose()
+  })
+
+  test("does not touch another user's inbox", async ({ page, playwright, baseURL }) => {
+    const employer = await newEmployer(playwright, baseURL)
+    const job = await publishReactJob(employer.ctx, 4)
+    const grace = await applyCandidate(playwright, baseURL, 'Grace Hopper', job.id, reactProfile(4))
+    await setStatus(employer.ctx, grace.applicationId, 'under_review')
+
+    await registerUser(page.request, { role: 'candidate' })
+    await saveProfileApi(page.request, reactProfile(3))
+    const { id } = await applyApi(page.request, job.id)
+    await setStatus(employer.ctx, id, 'under_review')
+
+    await page.goto('/jobs')
+    await bell(page, 1).click()
+    await page.getByRole('button', { name: 'Clear all' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete all' }).click()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expect(bell(page, 0)).toBeVisible()
+
+    expect(await unreadCountApi(grace.ctx)).toBe(1)
+    expect(await unreadCountApi(employer.ctx)).toBe(2) // two "new application" entries
+    await Promise.all([employer.ctx.dispose(), grace.ctx.dispose()])
   })
 })

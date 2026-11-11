@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import { validate, validateQuery, requireUuidParam } from '../../middleware/validate'
 import { requireAuth, requireRole } from '../auth/auth.middleware'
-import { adminJobsQuerySchema, adminUsersQuerySchema, suspensionSchema } from './admin.schema'
+import { adminAuditQuerySchema, adminJobsQuerySchema, deleteUserSchema, adminUsersQuerySchema, suspensionSchema } from './admin.schema'
 import {
+  audit,
+  deleteOneUser,
   jobs,
   overview,
   restoreOneJob,
@@ -23,3 +25,5 @@ adminRouter.delete('/admin/users/:id/suspension', restoreOneUser)
 adminRouter.get('/admin/jobs', validateQuery(adminJobsQuerySchema), jobs)
 adminRouter.post('/admin/jobs/:id/suspension', requireUuidParam(), validate(suspensionSchema), suspendOneJob)
 adminRouter.delete('/admin/jobs/:id/suspension', requireUuidParam(), restoreOneJob)
+adminRouter.delete('/admin/users/:id', validate(deleteUserSchema), deleteOneUser)
+adminRouter.get('/admin/audit', validateQuery(adminAuditQuerySchema), audit)

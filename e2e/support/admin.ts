@@ -30,6 +30,26 @@ export const suspendJobApi = (admin: APIRequestContext, id: string, reason: unkn
 export const restoreJobApi = (admin: APIRequestContext, id: string) =>
   admin.delete(`/api/admin/jobs/${id}/suspension`)
 
+export const deleteUserApi = (admin: APIRequestContext, id: string, confirmEmail: unknown) =>
+  admin.delete(`/api/admin/users/${id}`, { data: { confirmEmail } })
+
+export type AuditRow = {
+  id: string
+  actorId: string
+  actorEmail: string
+  action: string
+  targetType: string
+  targetId: string
+  targetLabel: string
+  reason: string | null
+}
+
+export async function listAuditApi(admin: APIRequestContext, params: Record<string, string> = {}) {
+  const res = await admin.get('/api/admin/audit', { params })
+  expect(res.status(), await res.text()).toBe(200)
+  return (await res.json()) as { entries: AuditRow[]; nextCursor: string | null }
+}
+
 export async function mustSucceed(res: Awaited<ReturnType<APIRequestContext['get']>>) {
   expect(res.status(), await res.text()).toBe(200)
   return res

@@ -27,7 +27,7 @@ export const applicationPhotoUrl = (applicationId: string, photoId: string | nul
   photoId ? `/api/employer/applications/${applicationId}/photo?v=${photoId}` : null
 
 /** Drops a blob once no profile or application points at it. */
-const deleteIfUnused = (id: string) =>
+export const deleteIfUnused = (id: string) =>
   prisma.photoBlob.deleteMany({ where: { id, profiles: { none: {} }, applications: { none: {} } } })
 
 export async function savePhoto(userId: string, body: unknown) {

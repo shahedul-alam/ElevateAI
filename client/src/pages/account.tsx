@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { changeEmailSchema, type ChangeEmailInput } from '@/features/auth/auth.schema'
-import { PENDING_EMAIL_KEY, withdrawAiConsentRequest } from '@/features/auth/auth.api'
+import { PENDING_EMAIL_KEY, setEmailNotificationsRequest, withdrawAiConsentRequest } from '@/features/auth/auth.api'
 import { SESSION_KEY } from '@/features/auth/use-session'
 import { useAuthStore } from '@/features/auth/auth.store'
 import { useChangeEmail } from '@/features/auth/use-change-email'
@@ -82,6 +82,8 @@ export default function Account() {
         )}
       </Card>
 
+      <EmailNotificationsCard />
+
       <AiConsentCard />
     </main>
   )
@@ -124,6 +126,42 @@ function AiConsentCard() {
           </Button>
         </CardFooter>
       )}
+    </Card>
+  )
+}
+
+/** Opt out of (or back into) the email sent when an application's status changes. */
+function EmailNotificationsCard() {
+  const user = useAuthStore((s) => s.user)
+  const setUser = useAuthStore((s) => s.setUser)
+  const queryClient = useQueryClient()
+  const toggle = useMutation({
+    mutationFn: setEmailNotificationsRequest,
+    onSuccess: (enabled) => {
+      if (user) setUser({ ...user, emailNotifications: enabled })
+      void queryClient.invalidateQueries({ queryKey: SESSION_KEY })
+      toast.success(enabled ? 'Status emails turned on' : 'Status emails turned off')
+    },
+    onError: (err) => toast.error('Could not save', { description: getApiError(err).message }),
+  })
+  if (user?.role !== 'candidate') return null
+  const on = user.emailNotifications !== false
+
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Email notifications</CardTitle>
+        <CardDescription>
+          {on
+            ? 'We email you when the status of one of your applications changes. You also get these in the app.'
+            : 'Status emails are off. You still get these updates in the app.'}
+        </CardDescription>
+      </CardHeader>
+      <CardFooter>
+        <Button type="button" variant="outline" disabled={toggle.isPending} onClick={() => toggle.mutate(!on)}>
+          {toggle.isPending ? 'Saving...' : on ? 'Turn off status emails' : 'Turn on status emails'}
+        </Button>
+      </CardFooter>
     </Card>
   )
 }

@@ -11,6 +11,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis: # BullMQ queues and shared rate limits: REDIS_URL=redis://localhost:6379/0
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+
   mailpit: # local SMTP catcher: SMTP_URL=smtp://localhost:1025, inbox at http://localhost:8025
     image: axllent/mailpit
     restart: unless-stopped
