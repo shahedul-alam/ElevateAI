@@ -1,0 +1,122 @@
+// Dev-only: ADDS demo employers, jobs, candidates and applications to the database in DATABASE_URL
+// without deleting anything. Run: bun run db:seed-demo. Writes server/seed-credentials.txt (gitignored).
+import { randomInt } from 'node:crypto'
+import { writeFileSync } from 'node:fs'
+import { prisma, disconnectDb } from '../src/config/db'
+import { env } from '../src/config/env'
+import { AI_CONSENT_VERSION } from '../src/modules/ai/ai-consent'
+import { applyToJob, changeApplicationStatus } from '../src/modules/applications/applications.service'
+import { ensureAdmin, registerUser } from '../src/modules/auth/auth.service'
+import { profileSaveSchema } from '../src/modules/candidate-profile/candidate-profile.schema'
+import { saveProfile } from '../src/modules/candidate-profile/candidate-profile.service'
+import { seedCatalog } from '../src/modules/catalog/catalog.service'
+import { companySaveSchema } from '../src/modules/company/company.schema'
+import { saveOwnCompany } from '../src/modules/company/company.service'
+import { jobContentSchema } from '../src/modules/jobs/jobs.schema'
+import { changeJobStatus, createJob } from '../src/modules/jobs/jobs.service'
+import { APPLICATIONS, CANDIDATES, EMPLOYERS } from './seed-demo.data'
+
+if (env.NODE_ENV === 'production') {
+  console.error('Refusing to run: NODE_ENV=production')
+  process.exit(1)
+}
+
+// Additive only: existing data is never touched. Jobs are not deduplicated, so a second run is refused.
+const seedEmails = [...EMPLOYERS.map((e) => e.email), ...CANDIDATES.map((c) => c.email)]
+if (await prisma.user.count({ where: { email: { in: seedEmails } } })) {
+  console.error('Demo accounts already exist (@seed.example.com); nothing seeded. Delete them in /admin first to re-seed.')
+  await disconnectDb()
+  process.exit(1)
+}
+
+// The admin comes from the env file; ensureAdmin does nothing if it already exists.
+if (env.ADMIN_EMAIL && env.ADMIN_PASSWORD) await ensureAdmin(env.ADMIN_EMAIL, env.ADMIN_PASSWORD)
+await seedCatalog()
+
+// Letter + digit satisfy the password rule; the rest is random.
+const ALPHABET = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const newPassword = () =>
+  'Aa1' + Array.from({ length: 11 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('')
+
+const creds: { role: string; name: string; email: string; password: string; note?: string }[] = []
+
+async function createUser(name: string, email: string, role: 'candidate' | 'employer') {
+  const password = newPassword()
+  const { user } = await registerUser({ name, email, password, role }, new Headers())
+  // Skip the verification mail flow and grant AI consent so summaries and AI cards work.
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { emailVerified: true, aiConsentAt: new Date(), aiConsentVersion: AI_CONSENT_VERSION },
+  })
+  return { id: user.id, name, password }
+}
+
+const employerIds = new Map<string, string>() // email local part -> user id
+const jobIds = new Map<string, string>() // `${employer}|${title}` -> job id
+
+for (const e of EMPLOYERS) {
+  const u = await createUser(e.contact, e.email, 'employer')
+  const key = e.email.split('@')[0]
+  employerIds.set(key, u.id)
+  creds.push({ role: 'employer', name: e.contact, email: e.email, password: u.password, note: e.company.name })
+
+  const company = await saveOwnCompany(
+    { id: u.id, name: u.name },
+    companySaveSchema.parse({ ...e.company, links: {}, hubs: [], awards: [] }),
+  )
+  if (e.verified) await prisma.company.update({ where: { id: company.id }, data: { verified: true } })
+
+  for (const j of e.jobs) {
+    const { state, ...rest } = j
+    const job = await createJob(u.id, jobContentSchema.parse({ leadershipLevel: 0, certIds: [], minDomainYears: 0, ...rest, otherDetails: [] }))
+    if (state !== 'draft') await changeJobStatus(u.id, job.id, 'publish')
+    if (state === 'closed') await changeJobStatus(u.id, job.id, 'close')
+    jobIds.set(`${key}|${j.title}`, job.id)
+  }
+}
+
+const candidateIds = new Map<string, string>()
+for (const c of CANDIDATES) {
+  const u = await createUser(c.name, c.email, 'candidate')
+  candidateIds.set(c.email.split('@')[0], u.id)
+  creds.push({ role: 'candidate', name: c.name, email: c.email, password: u.password })
+  const { name: _n, email: _e, ...profile } = c
+  await saveProfile(u.id, profileSaveSchema.parse({ ...profile, unmapped: [] }))
+}
+
+let applied = 0
+for (const a of APPLICATIONS) {
+  const candidateId = candidateIds.get(a.candidate)
+  const employerId = employerIds.get(a.employer)
+  const jobId = jobIds.get(`${a.employer}|${a.job}`)
+  if (!candidateId || !employerId || !jobId) throw new Error(`Bad application row: ${JSON.stringify(a)}`)
+  await applyToJob(candidateId, jobId)
+  applied++
+  if (a.stage) {
+    const app = await prisma.application.findFirstOrThrow({ where: { candidateId, jobId }, select: { id: true } })
+    await changeApplicationStatus(employerId, app.id, a.stage)
+  }
+}
+
+const lines = [
+  'ElevateAI demo accounts (generated by `bun run db:seed-demo`; local dev only, do not commit).',
+  'Admin: ADMIN_EMAIL / ADMIN_PASSWORD from server/.env',
+  '',
+  ...(['employer', 'candidate'] as const).flatMap((role) => [
+    `== ${role === 'employer' ? 'EMPLOYERS' : 'CANDIDATES'} ==`,
+    ...creds
+      .filter((c) => c.role === role)
+      .map((c) => `${c.email}  ${c.password}  (${c.name}${c.note ? `, ${c.note}` : ''})`),
+    '',
+  ]),
+]
+writeFileSync(new URL('../seed-credentials.txt', import.meta.url), lines.join('\n'))
+
+console.log(
+  `Seeded ${EMPLOYERS.length} employers, ${jobIds.size} jobs, ${CANDIDATES.length} candidates, ${applied} applications.`,
+)
+console.log('Credentials written to server/seed-credentials.txt')
+
+await disconnectDb()
+// applications.service opens a Redis connection (summary queue) that would keep the process alive.
+process.exit(0)

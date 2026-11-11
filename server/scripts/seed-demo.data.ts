@@ -1,0 +1,710 @@
+// Demo data for seed-demo.ts. Names and companies are invented. Term ids come from catalog.seed-data.ts.
+// Shorthands keep the rows readable: sk('react', 4, 3) = skill level 4, 3 years; rq(...) = job skill requirement.
+const sk = (s: string, level: number, years: number) => ({ termId: `skill:${s}`, level, years })
+const rq = (s: string, minLevel: number, required = true, minYears?: number) => ({
+  termId: `skill:${s}`,
+  required,
+  minLevel,
+  ...(minYears ? { minYears } : {}),
+})
+const d = (s: string) => `domain:${s}`
+const c = (s: string) => `certification:${s}`
+
+export type JobSeed = {
+  title: string
+  description: string
+  skills: ReturnType<typeof rq>[]
+  minYears: number
+  domainId?: string
+  minDomainYears?: number
+  minDegreeLevel?: number
+  leadershipLevel?: number
+  certIds?: string[]
+  location: string
+  workMode: 'onsite' | 'hybrid' | 'remote'
+  employmentType: 'full_time' | 'part_time' | 'contract' | 'internship'
+  salaryMin: number
+  salaryMax: number
+  responsibilities: string[]
+  qualifications: string[]
+  perks: string[]
+  /** Default is published. */
+  state?: 'draft' | 'closed'
+}
+
+export type EmployerSeed = {
+  contact: string
+  email: string
+  company: {
+    name: string
+    tagline: string
+    about: string
+    mission: string
+    headquarters: string
+    size: '1-10' | '11-50' | '51-200' | '201-500' | '501-1000' | '1000+'
+    fundingStage: 'Bootstrapped' | 'Seed' | 'Series A' | 'Series B' | 'Series C+' | 'Public'
+    foundedYear: number
+    website: string
+    domainId: string
+    workPolicy: 'onsite' | 'hybrid' | 'remote_first'
+    benefits: string[]
+    culture: { title: string; description: string }[]
+  }
+  verified: boolean
+  jobs: JobSeed[]
+}
+
+export const EMPLOYERS: EmployerSeed[] = [
+  {
+    contact: 'Maya Chen',
+    email: 'maya.chen@seed.example.com',
+    verified: true,
+    company: {
+      name: 'Northwind Payments',
+      tagline: 'Payments infrastructure for growing businesses',
+      about:
+        'Northwind builds card acceptance, payouts and reconciliation APIs used by online merchants. Our engineering team ships small, reviewed changes several times a day.',
+      mission: 'Make moving money as simple as sending a message.',
+      headquarters: 'London, UK',
+      size: '201-500',
+      fundingStage: 'Series C+',
+      foundedYear: 2016,
+      website: 'https://northwind-payments.example.com',
+      domainId: d('fintech'),
+      workPolicy: 'hybrid',
+      benefits: ['Private health cover', '25 days holiday', 'Learning budget', 'Equity for all staff'],
+      culture: [
+        { title: 'Write it down', description: 'Decisions live in short design docs, not in meetings.' },
+        { title: 'Own the pager', description: 'Teams run what they build, with a fair on-call rota.' },
+      ],
+    },
+    jobs: [
+      {
+        title: 'Senior Backend Engineer, Payments API',
+        description:
+          'Design and run the services behind our public payments API. You will work on idempotency, ledgers and webhooks used by thousands of merchants.',
+        skills: [rq('nodejs', 4, true, 4), rq('typescript', 4), rq('postgresql', 3), rq('redis', 2, false), rq('aws', 3, false)],
+        minYears: 5,
+        domainId: d('fintech'),
+        minDomainYears: 2,
+        minDegreeLevel: 2,
+        location: 'London, UK',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 85000,
+        salaryMax: 115000,
+        responsibilities: ['Own services end to end, from design to on-call', 'Review code and mentor mid-level engineers', 'Improve latency and reliability of core payment flows'],
+        qualifications: ['5+ years building backend services', 'Strong SQL and data modelling', 'Experience with money movement or ledgers is a plus'],
+        perks: ['Hybrid, 2 days in the office', 'Equity'],
+      },
+      {
+        title: 'Frontend Engineer, Merchant Dashboard',
+        description: 'Build the dashboard merchants use to view payments, disputes and payouts. Accessibility and performance matter here.',
+        skills: [rq('react', 4, true, 3), rq('typescript', 3), rq('html-css', 3), rq('testing', 3, false), rq('graphql', 2, false)],
+        minYears: 3,
+        domainId: d('fintech'),
+        minDegreeLevel: 2,
+        location: 'London, UK',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 65000,
+        salaryMax: 90000,
+        responsibilities: ['Ship features in the merchant dashboard', 'Work with design on accessible components', 'Keep the test suite fast and reliable'],
+        qualifications: ['3+ years with React and TypeScript', 'Care for accessibility'],
+        perks: ['Learning budget'],
+      },
+      {
+        title: 'Data Analyst, Risk',
+        description: 'Analyse transaction patterns to tune fraud rules and report on risk to the leadership team.',
+        skills: [rq('sql', 4), rq('python', 3), rq('data-analysis', 4), rq('communication', 3, false)],
+        minYears: 2,
+        domainId: d('fintech'),
+        minDegreeLevel: 2,
+        location: 'Remote (UK)',
+        workMode: 'remote',
+        employmentType: 'full_time',
+        salaryMin: 50000,
+        salaryMax: 70000,
+        responsibilities: ['Build weekly risk reports', 'Investigate spikes in chargebacks', 'Prototype fraud rules with the risk team'],
+        qualifications: ['Strong SQL', 'Clear written communication'],
+        perks: ['Remote within the UK'],
+      },
+      {
+        title: 'Engineering Manager, Platform',
+        description: 'Lead the platform team that owns deployment, observability and shared services.',
+        skills: [rq('aws', 4), rq('kubernetes', 3), rq('docker', 3), rq('project-management', 3, false)],
+        minYears: 8,
+        minDegreeLevel: 2,
+        leadershipLevel: 2,
+        certIds: [c('aws-solutions-architect')],
+        location: 'London, UK',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 110000,
+        salaryMax: 140000,
+        responsibilities: ['Manage a team of 6 engineers', 'Set the platform roadmap with product', 'Hire and develop engineers'],
+        qualifications: ['Prior experience managing engineers', 'Deep cloud infrastructure background'],
+        perks: ['Equity', 'Conference budget'],
+      },
+    ],
+  },
+  {
+    contact: 'Daniel Okafor',
+    email: 'daniel.okafor@seed.example.com',
+    verified: true,
+    company: {
+      name: 'Brightpath Health',
+      tagline: 'Software that gives clinicians their time back',
+      about:
+        'Brightpath makes scheduling and patient messaging tools for clinics. We work closely with nurses and doctors, and every feature starts with a visit to a clinic.',
+      mission: 'Less admin, more care.',
+      headquarters: 'Toronto, Canada',
+      size: '51-200',
+      fundingStage: 'Series B',
+      foundedYear: 2018,
+      website: 'https://brightpath-health.example.com',
+      domainId: d('healthcare'),
+      workPolicy: 'remote_first',
+      benefits: ['Remote-first', 'Health and dental', 'Home office stipend', 'Four-day weeks in summer'],
+      culture: [
+        { title: 'Start with the clinic', description: 'We spend time with users before we write specs.' },
+        { title: 'Calm by default', description: 'No heroics. We plan work so nights and weekends stay free.' },
+      ],
+    },
+    jobs: [
+      {
+        title: 'Full-Stack Engineer',
+        description: 'Build patient messaging and scheduling features across our React front end and Node services.',
+        skills: [rq('react', 3), rq('nodejs', 3), rq('typescript', 3), rq('postgresql', 3), rq('testing', 3, false)],
+        minYears: 3,
+        domainId: d('healthcare'),
+        minDegreeLevel: 2,
+        location: 'Canada (remote)',
+        workMode: 'remote',
+        employmentType: 'full_time',
+        salaryMin: 90000,
+        salaryMax: 120000,
+        responsibilities: ['Ship features end to end', 'Pair with designers and clinicians', 'Keep patient data safe'],
+        qualifications: ['3+ years full-stack', 'Comfortable with privacy requirements'],
+        perks: ['Four-day weeks in summer'],
+      },
+      {
+        title: 'Machine Learning Engineer, Triage',
+        description: 'Develop models that help clinics prioritise incoming patient messages, with strong safeguards and human review.',
+        skills: [rq('python', 4), rq('machine-learning', 4, true, 3), rq('sql', 3), rq('docker', 2, false), rq('aws', 2, false)],
+        minYears: 4,
+        domainId: d('healthcare'),
+        minDegreeLevel: 3,
+        location: 'Canada (remote)',
+        workMode: 'remote',
+        employmentType: 'full_time',
+        salaryMin: 110000,
+        salaryMax: 145000,
+        responsibilities: ['Train and evaluate classification models', 'Design review workflows for model output', 'Monitor models in production'],
+        qualifications: ['Master’s degree or equivalent experience', 'Experience shipping models to production'],
+        perks: ['Research days each quarter'],
+      },
+      {
+        title: 'QA Engineer',
+        description: 'Own test strategy for our web apps and write automated checks that clinics can rely on.',
+        skills: [rq('testing', 4, true, 3), rq('javascript', 3), rq('git', 3), rq('rest-api', 3, false)],
+        minYears: 2,
+        minDegreeLevel: 1,
+        location: 'Toronto, Canada',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 70000,
+        salaryMax: 90000,
+        responsibilities: ['Write and maintain end-to-end tests', 'Triage bugs with engineers', 'Improve release checklists'],
+        qualifications: ['2+ years in QA or test automation'],
+        perks: ['Hybrid in Toronto'],
+      },
+      {
+        title: 'Product Designer (Contract)',
+        description: 'Six-month contract to redesign the appointment booking flow with our clinic partners.',
+        skills: [rq('figma', 4, true, 3), rq('communication', 4), rq('html-css', 2, false)],
+        minYears: 3,
+        domainId: d('healthcare'),
+        location: 'Remote',
+        workMode: 'remote',
+        employmentType: 'contract',
+        salaryMin: 70000,
+        salaryMax: 95000,
+        responsibilities: ['Run usability sessions in clinics', 'Deliver high-fidelity prototypes', 'Hand off to engineering'],
+        qualifications: ['Portfolio showing complex workflow design'],
+        perks: ['Flexible hours'],
+        state: 'draft',
+      },
+    ],
+  },
+  {
+    contact: 'Priya Raman',
+    email: 'priya.raman@seed.example.com',
+    verified: false,
+    company: {
+      name: 'Cartwheel Commerce',
+      tagline: 'Storefronts for independent shops',
+      about:
+        'Cartwheel helps independent retailers sell online with templates, inventory sync and shipping labels. Small team, quick decisions, real customers every week.',
+      mission: 'Give every small shop a store that works.',
+      headquarters: 'Berlin, Germany',
+      size: '11-50',
+      fundingStage: 'Seed',
+      foundedYear: 2021,
+      website: 'https://cartwheel-commerce.example.com',
+      domainId: d('ecommerce'),
+      workPolicy: 'hybrid',
+      benefits: ['Flexible hours', 'Public transport pass', 'Equity'],
+      culture: [{ title: 'Ship weekly', description: 'Small releases, fast feedback from shop owners.' }],
+    },
+    jobs: [
+      {
+        title: 'Junior Web Developer',
+        description: 'Join a small team building store templates and checkout pages. Mentoring from senior engineers included.',
+        skills: [rq('javascript', 2), rq('html-css', 3), rq('git', 2), rq('react', 2, false)],
+        minYears: 0,
+        minDegreeLevel: 1,
+        location: 'Berlin, Germany',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 42000,
+        salaryMax: 52000,
+        responsibilities: ['Build and test storefront templates', 'Fix bugs from support tickets', 'Learn our release process with a mentor'],
+        qualifications: ['Basic HTML, CSS and JavaScript', 'Curiosity and good questions'],
+        perks: ['Mentoring', 'Public transport pass'],
+      },
+      {
+        title: 'Backend Engineer, Inventory Sync',
+        description: 'Build the services that keep stock levels in sync between shops and marketplaces.',
+        skills: [rq('go', 3, true, 2), rq('postgresql', 3), rq('rest-api', 3), rq('docker', 2, false), rq('redis', 2, false)],
+        minYears: 3,
+        domainId: d('ecommerce'),
+        minDegreeLevel: 2,
+        location: 'Berlin, Germany',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 65000,
+        salaryMax: 85000,
+        responsibilities: ['Design sync pipelines with retries and backoff', 'Add integrations with marketplaces', 'Monitor data quality'],
+        qualifications: ['3+ years backend', 'Comfortable with Go or willing to learn fast'],
+        perks: ['Equity'],
+      },
+      {
+        title: 'Marketing Analytics Intern',
+        description: 'Three-month internship working with our growth lead on campaign reports.',
+        skills: [rq('data-analysis', 2), rq('sql', 2), rq('communication', 3, false)],
+        minYears: 0,
+        location: 'Berlin, Germany',
+        workMode: 'onsite',
+        employmentType: 'internship',
+        salaryMin: 18000,
+        salaryMax: 22000,
+        responsibilities: ['Build weekly campaign reports', 'Clean marketing data', 'Present findings to the team'],
+        qualifications: ['Currently studying a related subject'],
+        perks: ['Possible full-time offer'],
+        state: 'closed',
+      },
+    ],
+  },
+  {
+    contact: 'Tomás Herrera',
+    email: 'tomas.herrera@seed.example.com',
+    verified: true,
+    company: {
+      name: 'Ledgerline Cloud',
+      tagline: 'Finance operations software for mid-sized companies',
+      about:
+        'Ledgerline offers a cloud platform for invoicing, approvals and spend control. Our customers are finance teams of 20 to 500 people.',
+      mission: 'Close the books without the late nights.',
+      headquarters: 'Austin, USA',
+      size: '501-1000',
+      fundingStage: 'Public',
+      foundedYear: 2011,
+      website: 'https://ledgerline-cloud.example.com',
+      domainId: d('saas'),
+      workPolicy: 'hybrid',
+      benefits: ['401(k) match', 'Health, dental, vision', '20 days PTO', 'Parental leave'],
+      culture: [{ title: 'Customers first', description: 'Every team reviews support themes monthly.' }],
+    },
+    jobs: [
+      {
+        title: 'Staff Software Engineer',
+        description: 'Set technical direction for our approvals and workflow services. Lead design reviews across teams.',
+        skills: [rq('java', 4, true, 6), rq('postgresql', 4), rq('aws', 3), rq('kubernetes', 3, false), rq('rest-api', 4)],
+        minYears: 9,
+        domainId: d('saas'),
+        minDomainYears: 4,
+        minDegreeLevel: 2,
+        leadershipLevel: 2,
+        location: 'Austin, USA',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 170000,
+        salaryMax: 210000,
+        responsibilities: ['Drive architecture for approvals services', 'Lead cross-team design reviews', 'Mentor senior engineers'],
+        qualifications: ['9+ years building backend systems', 'Track record leading technical projects'],
+        perks: ['401(k) match', 'Stock'],
+      },
+      {
+        title: 'DevOps Engineer',
+        description: 'Run our Kubernetes platform on AWS and help teams deploy safely and often.',
+        skills: [rq('kubernetes', 4, true, 3), rq('aws', 4), rq('docker', 4), rq('git', 3), rq('python', 2, false)],
+        minYears: 4,
+        minDegreeLevel: 2,
+        certIds: [c('cka')],
+        location: 'Remote (US)',
+        workMode: 'remote',
+        employmentType: 'full_time',
+        salaryMin: 120000,
+        salaryMax: 155000,
+        responsibilities: ['Maintain clusters and CI/CD', 'Improve observability and cost control', 'Support teams during incidents'],
+        qualifications: ['4+ years in DevOps or SRE', 'CKA is preferred'],
+        perks: ['Remote within the US'],
+      },
+      {
+        title: 'Technical Project Manager',
+        description: 'Coordinate delivery of our ERP integration programme across engineering, support and customers.',
+        skills: [rq('project-management', 4, true, 4), rq('communication', 4), rq('rest-api', 2, false)],
+        minYears: 5,
+        domainId: d('saas'),
+        minDegreeLevel: 2,
+        leadershipLevel: 1,
+        certIds: [c('pmp')],
+        location: 'Austin, USA',
+        workMode: 'hybrid',
+        employmentType: 'full_time',
+        salaryMin: 100000,
+        salaryMax: 130000,
+        responsibilities: ['Run the programme plan and risk log', 'Report status to executives', 'Remove blockers across teams'],
+        qualifications: ['PMP preferred', 'Experience with software delivery'],
+        perks: ['401(k) match'],
+      },
+      {
+        title: 'Frontend Engineer (Part-Time)',
+        description: 'Twenty hours a week building reporting screens in React.',
+        skills: [rq('react', 3), rq('typescript', 3), rq('html-css', 3), rq('tailwind', 2, false)],
+        minYears: 2,
+        minDegreeLevel: 1,
+        location: 'Remote (US)',
+        workMode: 'remote',
+        employmentType: 'part_time',
+        salaryMin: 45000,
+        salaryMax: 65000,
+        responsibilities: ['Build reporting screens', 'Fix UI bugs', 'Write component tests'],
+        qualifications: ['2+ years React'],
+        perks: ['Flexible schedule'],
+      },
+    ],
+  },
+  {
+    contact: 'Aiko Tanaka',
+    email: 'aiko.tanaka@seed.example.com',
+    verified: false,
+    company: {
+      name: 'Harbor Freight Labs',
+      tagline: 'Route planning and tracking for regional carriers',
+      about:
+        'Harbor builds dispatch and tracking tools for regional trucking and delivery companies. Our engineers regularly ride along with drivers.',
+      mission: 'Get goods where they are going, on time.',
+      headquarters: 'Rotterdam, Netherlands',
+      size: '51-200',
+      fundingStage: 'Series A',
+      foundedYear: 2019,
+      website: 'https://harbor-freight-labs.example.com',
+      domainId: d('logistics'),
+      workPolicy: 'onsite',
+      benefits: ['Relocation help', 'Lunch provided', '27 days holiday'],
+      culture: [{ title: 'Ride along', description: 'We spend a day a year on the road with a customer.' }],
+    },
+    jobs: [
+      {
+        title: 'Data Engineer',
+        description: 'Build pipelines that turn GPS and sensor data into delivery estimates.',
+        skills: [rq('python', 4), rq('sql', 4), rq('postgresql', 3), rq('aws', 3, false), rq('data-analysis', 3, false)],
+        minYears: 3,
+        domainId: d('logistics'),
+        minDegreeLevel: 2,
+        location: 'Rotterdam, Netherlands',
+        workMode: 'onsite',
+        employmentType: 'full_time',
+        salaryMin: 60000,
+        salaryMax: 80000,
+        responsibilities: ['Build and monitor data pipelines', 'Improve ETA accuracy', 'Document data models'],
+        qualifications: ['3+ years in data engineering', 'Comfortable with SQL at scale'],
+        perks: ['Relocation help'],
+      },
+      {
+        title: 'Rust Systems Engineer',
+        description: 'Write the vehicle gateway software that reports position and status from the cab to our cloud.',
+        skills: [rq('rust', 4, true, 2), rq('cpp', 3, false), rq('git', 3), rq('testing', 3)],
+        minYears: 4,
+        minDegreeLevel: 2,
+        location: 'Rotterdam, Netherlands',
+        workMode: 'onsite',
+        employmentType: 'full_time',
+        salaryMin: 70000,
+        salaryMax: 95000,
+        responsibilities: ['Develop the on-vehicle gateway', 'Handle flaky networks gracefully', 'Test on real hardware'],
+        qualifications: ['Systems programming experience'],
+        perks: ['Relocation help'],
+      },
+    ],
+  },
+  {
+    contact: 'Lena Fischer',
+    email: 'lena.fischer@seed.example.com',
+    verified: true,
+    company: {
+      name: 'Campus Compass',
+      tagline: 'Learning tools for universities',
+      about:
+        'Campus Compass makes advising and course planning software used by universities to help students graduate on time.',
+      mission: 'Help every student find a clear path to graduation.',
+      headquarters: 'Dublin, Ireland',
+      size: '51-200',
+      fundingStage: 'Series A',
+      foundedYear: 2017,
+      website: 'https://campus-compass.example.com',
+      domainId: d('education'),
+      workPolicy: 'remote_first',
+      benefits: ['Remote-first', 'Co-working allowance', 'Education budget'],
+      culture: [{ title: 'Students are the user', description: 'Every quarter we interview students about their experience.' }],
+    },
+    jobs: [
+      {
+        title: 'Senior Product Manager',
+        description: 'Own the roadmap for our advising product, working with advisers, engineers and university partners.',
+        skills: [rq('project-management', 4), rq('communication', 5), rq('data-analysis', 3)],
+        minYears: 6,
+        domainId: d('education'),
+        minDomainYears: 2,
+        minDegreeLevel: 2,
+        leadershipLevel: 1,
+        location: 'Ireland (remote)',
+        workMode: 'remote',
+        employmentType: 'full_time',
+        salaryMin: 85000,
+        salaryMax: 110000,
+        responsibilities: ['Set roadmap with engineering and design', 'Run discovery with advisers', 'Define success metrics'],
+        qualifications: ['6+ years in product management', 'Experience with B2B products'],
+        perks: ['Education budget'],
+      },
+      {
+        title: 'Cloud Engineer',
+        description: 'Move our services to a multi-region setup on Azure and improve disaster recovery.',
+        skills: [rq('azure', 4, true, 3), rq('docker', 3), rq('kubernetes', 3, false), rq('git', 3), rq('csharp', 3, false)],
+        minYears: 4,
+        minDegreeLevel: 2,
+        certIds: [c('azure-fundamentals')],
+        location: 'Ireland (remote)',
+        workMode: 'remote',
+        employmentType: 'full_time',
+        salaryMin: 75000,
+        salaryMax: 100000,
+        responsibilities: ['Design multi-region deployments', 'Write and test recovery runbooks', 'Cut cloud costs'],
+        qualifications: ['4+ years on Azure', 'Infrastructure-as-code experience'],
+        perks: ['Co-working allowance'],
+      },
+    ],
+  },
+]
+
+export type CandidateSeed = {
+  name: string
+  email: string
+  headline: string
+  summary: string
+  skills: ReturnType<typeof sk>[]
+  roles: { title: string; years: number; domainId?: string; company: string; period: string; description: string }[]
+  education: { degreeLevel: number; field: string; institution: string; period: string }[]
+  leadershipLevel: number
+  certIds: string[]
+  preferences: { locations: string[]; workModes: ('onsite' | 'hybrid' | 'remote')[]; minSalary?: number }
+  contact: { phone: string; city: string; country: string; linkedin: string; github?: string }
+}
+
+export const CANDIDATES: CandidateSeed[] = [
+  {
+    name: 'Alex Morgan',
+    email: 'alex.morgan@seed.example.com',
+    headline: 'Senior backend engineer, payments and APIs',
+    summary: 'Seven years building reliable Node and Postgres services, the last four in payments. I like clear designs and boring technology.',
+    skills: [sk('nodejs', 5, 7), sk('typescript', 5, 6), sk('postgresql', 4, 6), sk('redis', 3, 4), sk('aws', 3, 4), sk('docker', 3, 5), sk('rest-api', 5, 7), sk('git', 4, 7)],
+    roles: [
+      { title: 'Senior Backend Engineer', years: 4, domainId: d('fintech'), company: 'PayLoop', period: '2022 - Present', description: 'Built the settlement service and moved reconciliation to event-driven jobs.' },
+      { title: 'Backend Engineer', years: 3, domainId: d('ecommerce'), company: 'ShopStack', period: '2019 - 2022', description: 'Order and inventory APIs for a marketplace with 2M monthly users.' },
+    ],
+    education: [{ degreeLevel: 2, field: 'Computer Science', institution: 'University of Leeds', period: '2014 - 2018' }],
+    leadershipLevel: 1,
+    certIds: [c('aws-developer')],
+    preferences: { locations: ['London, UK'], workModes: ['hybrid', 'remote'], minSalary: 90000 },
+    contact: { phone: '+44 20 7946 0101', city: 'London', country: 'UK', linkedin: 'https://www.linkedin.com/in/alex-morgan-example', github: 'https://github.com/alex-morgan-example' },
+  },
+  {
+    name: 'Sofia Rossi',
+    email: 'sofia.rossi@seed.example.com',
+    headline: 'Frontend engineer focused on accessible interfaces',
+    summary: 'Four years building React interfaces for finance and SaaS products. I care about accessibility and fast pages.',
+    skills: [sk('react', 5, 4), sk('typescript', 4, 4), sk('html-css', 5, 5), sk('tailwind', 4, 2), sk('testing', 4, 3), sk('graphql', 3, 2), sk('figma', 3, 3)],
+    roles: [
+      { title: 'Frontend Engineer', years: 3, domainId: d('saas'), company: 'Pipeline Works', period: '2022 - Present', description: 'Led the move to a shared component library and cut page load time by 40%.' },
+      { title: 'Junior Frontend Developer', years: 1.5, company: 'Studio Nove', period: '2020 - 2021', description: 'Marketing sites and small web apps for agency clients.' },
+    ],
+    education: [{ degreeLevel: 2, field: 'Interaction Design', institution: 'Politecnico di Milano', period: '2016 - 2020' }],
+    leadershipLevel: 0,
+    certIds: [],
+    preferences: { locations: ['London, UK', 'Remote'], workModes: ['hybrid', 'remote'], minSalary: 65000 },
+    contact: { phone: '+39 02 5555 0102', city: 'Milan', country: 'Italy', linkedin: 'https://www.linkedin.com/in/sofia-rossi-example' },
+  },
+  {
+    name: 'Jamal Washington',
+    email: 'jamal.washington@seed.example.com',
+    headline: 'DevOps engineer, Kubernetes and AWS',
+    summary: 'Six years running production platforms. I automate what hurts and write runbooks people actually use.',
+    skills: [sk('kubernetes', 5, 5), sk('aws', 5, 6), sk('docker', 5, 6), sk('git', 4, 8), sk('python', 3, 4), sk('go', 3, 2)],
+    roles: [
+      { title: 'Senior DevOps Engineer', years: 3, domainId: d('saas'), company: 'CloudNine', period: '2023 - Present', description: 'Runs 40 clusters across three regions with a team of four.' },
+      { title: 'Systems Engineer', years: 3, company: 'Datacore', period: '2020 - 2023', description: 'Moved on-prem workloads to AWS and introduced infrastructure as code.' },
+    ],
+    education: [{ degreeLevel: 2, field: 'Information Systems', institution: 'Georgia State University', period: '2013 - 2017' }],
+    leadershipLevel: 1,
+    certIds: [c('cka'), c('aws-solutions-architect')],
+    preferences: { locations: ['Remote (US)', 'Austin, USA'], workModes: ['remote', 'hybrid'], minSalary: 125000 },
+    contact: { phone: '+1 512 555 0103', city: 'Atlanta', country: 'USA', linkedin: 'https://www.linkedin.com/in/jamal-washington-example', github: 'https://github.com/jamal-washington-example' },
+  },
+  {
+    name: 'Emma Larsson',
+    email: 'emma.larsson@seed.example.com',
+    headline: 'Data analyst moving into data engineering',
+    summary: 'Three years analysing logistics and retail data in SQL and Python. Now building pipelines instead of one-off reports.',
+    skills: [sk('sql', 5, 5), sk('python', 4, 3), sk('data-analysis', 5, 4), sk('postgresql', 3, 3), sk('communication', 4, 4), sk('aws', 2, 1)],
+    roles: [
+      { title: 'Data Analyst', years: 3, domainId: d('logistics'), company: 'NordFrakt', period: '2022 - Present', description: 'Delivery-time reporting and a first set of automated pipelines in Python.' },
+      { title: 'Business Analyst', years: 2, domainId: d('ecommerce'), company: 'Hemma Online', period: '2020 - 2022', description: 'Sales dashboards and ad hoc analysis for category managers.' },
+    ],
+    education: [{ degreeLevel: 3, field: 'Statistics', institution: 'Stockholm University', period: '2016 - 2020' }],
+    leadershipLevel: 0,
+    certIds: [],
+    preferences: { locations: ['Rotterdam, Netherlands', 'Remote'], workModes: ['onsite', 'hybrid', 'remote'], minSalary: 55000 },
+    contact: { phone: '+46 8 555 0104', city: 'Stockholm', country: 'Sweden', linkedin: 'https://www.linkedin.com/in/emma-larsson-example' },
+  },
+  {
+    name: 'Ravi Patel',
+    email: 'ravi.patel@seed.example.com',
+    headline: 'Machine learning engineer, applied models in healthcare',
+    summary: 'Five years training and deploying classification models, including two years in clinical text. Careful about evaluation and safety.',
+    skills: [sk('python', 5, 7), sk('machine-learning', 5, 5), sk('sql', 4, 5), sk('docker', 3, 3), sk('aws', 3, 3), sk('git', 4, 6), sk('data-analysis', 4, 5)],
+    roles: [
+      { title: 'Machine Learning Engineer', years: 3, domainId: d('healthcare'), company: 'MedSignal', period: '2022 - Present', description: 'Built a note-triage model used by 30 clinics, with a human review queue.' },
+      { title: 'Data Scientist', years: 2, domainId: d('fintech'), company: 'Quanta Credit', period: '2020 - 2022', description: 'Credit risk models and monitoring dashboards.' },
+    ],
+    education: [{ degreeLevel: 3, field: 'Machine Learning', institution: 'University of Toronto', period: '2018 - 2020' }],
+    leadershipLevel: 1,
+    certIds: [],
+    preferences: { locations: ['Canada (remote)'], workModes: ['remote'], minSalary: 115000 },
+    contact: { phone: '+1 416 555 0105', city: 'Toronto', country: 'Canada', linkedin: 'https://www.linkedin.com/in/ravi-patel-example', github: 'https://github.com/ravi-patel-example' },
+  },
+  {
+    name: 'Chloe Dubois',
+    email: 'chloe.dubois@seed.example.com',
+    headline: 'Junior web developer, recent bootcamp graduate',
+    summary: 'Career changer from retail management. I finished a 6-month full-stack bootcamp and built three small projects for local shops.',
+    skills: [sk('javascript', 3, 1), sk('html-css', 3, 1.5), sk('react', 2, 0.5), sk('git', 2, 1), sk('communication', 4, 6)],
+    roles: [
+      { title: 'Web Developer (Bootcamp Projects)', years: 0.5, company: 'Freelance', period: '2025 - Present', description: 'Websites for a bakery, a bike shop and a yoga studio.' },
+      { title: 'Store Manager', years: 6, domainId: d('ecommerce'), company: 'Maison Verte', period: '2018 - 2024', description: 'Managed a team of eight and the shop’s online ordering.' },
+    ],
+    education: [{ degreeLevel: 1, field: 'Web Development', institution: 'Ironhack Berlin', period: '2025' }],
+    leadershipLevel: 1,
+    certIds: [],
+    preferences: { locations: ['Berlin, Germany'], workModes: ['hybrid', 'onsite'], minSalary: 40000 },
+    contact: { phone: '+49 30 5550 0106', city: 'Berlin', country: 'Germany', linkedin: 'https://www.linkedin.com/in/chloe-dubois-example' },
+  },
+  {
+    name: 'Marcus Johnson',
+    email: 'marcus.johnson@seed.example.com',
+    headline: 'Engineering leader, SaaS platforms',
+    summary: 'Twelve years in software, six leading teams. I hire well, keep systems simple and push for clear ownership.',
+    skills: [sk('java', 5, 10), sk('postgresql', 4, 9), sk('aws', 4, 7), sk('kubernetes', 3, 4), sk('rest-api', 5, 10), sk('project-management', 4, 6), sk('communication', 5, 10)],
+    roles: [
+      { title: 'Director of Engineering', years: 3, domainId: d('saas'), company: 'Invoicely', period: '2023 - Present', description: 'Leads 25 engineers across billing, approvals and integrations.' },
+      { title: 'Engineering Manager', years: 4, domainId: d('saas'), company: 'Invoicely', period: '2019 - 2023', description: 'Grew the billing team from 4 to 11 engineers.' },
+      { title: 'Senior Software Engineer', years: 5, domainId: d('fintech'), company: 'BankBridge', period: '2014 - 2019', description: 'Core services for account aggregation.' },
+    ],
+    education: [{ degreeLevel: 2, field: 'Computer Engineering', institution: 'University of Texas at Austin', period: '2008 - 2012' }],
+    leadershipLevel: 3,
+    certIds: [c('pmp'), c('aws-solutions-architect')],
+    preferences: { locations: ['Austin, USA'], workModes: ['hybrid'], minSalary: 170000 },
+    contact: { phone: '+1 512 555 0107', city: 'Austin', country: 'USA', linkedin: 'https://www.linkedin.com/in/marcus-johnson-example' },
+  },
+  {
+    name: 'Nadia Hussein',
+    email: 'nadia.hussein@seed.example.com',
+    headline: 'QA automation engineer',
+    summary: 'Four years automating web tests. I like finding the bug a user would hit before the user does.',
+    skills: [sk('testing', 5, 4), sk('javascript', 4, 4), sk('typescript', 3, 2), sk('git', 4, 4), sk('rest-api', 4, 4), sk('sql', 3, 3)],
+    roles: [
+      { title: 'QA Automation Engineer', years: 3, domainId: d('healthcare'), company: 'Carewell', period: '2022 - Present', description: 'Built the end-to-end suite for the patient portal, running in 12 minutes on every pull request.' },
+      { title: 'QA Analyst', years: 1.5, company: 'Webline', period: '2020 - 2022', description: 'Manual and exploratory testing, then first automation scripts.' },
+    ],
+    education: [{ degreeLevel: 2, field: 'Software Engineering', institution: 'McMaster University', period: '2016 - 2020' }],
+    leadershipLevel: 0,
+    certIds: [],
+    preferences: { locations: ['Toronto, Canada'], workModes: ['hybrid', 'remote'], minSalary: 72000 },
+    contact: { phone: '+1 647 555 0108', city: 'Toronto', country: 'Canada', linkedin: 'https://www.linkedin.com/in/nadia-hussein-example' },
+  },
+  {
+    name: 'Oliver Schmidt',
+    email: 'oliver.schmidt@seed.example.com',
+    headline: 'Systems programmer, Rust and C++',
+    summary: 'Seven years of embedded and systems work. Recently moved my daily work from C++ to Rust and have not looked back.',
+    skills: [sk('rust', 4, 3), sk('cpp', 5, 7), sk('git', 4, 7), sk('testing', 4, 5), sk('python', 3, 4), sk('docker', 2, 2)],
+    roles: [
+      { title: 'Systems Engineer', years: 4, domainId: d('logistics'), company: 'TransLogik', period: '2021 - Present', description: 'Telematics firmware and gateway software for trucks.' },
+      { title: 'Embedded Developer', years: 3, domainId: d('manufacturing'), company: 'Werkbau', period: '2018 - 2021', description: 'Control software for packaging machines.' },
+    ],
+    education: [{ degreeLevel: 3, field: 'Electrical Engineering', institution: 'TU Munich', period: '2013 - 2018' }],
+    leadershipLevel: 0,
+    certIds: [],
+    preferences: { locations: ['Rotterdam, Netherlands'], workModes: ['onsite', 'hybrid'], minSalary: 72000 },
+    contact: { phone: '+49 89 5550 0109', city: 'Munich', country: 'Germany', linkedin: 'https://www.linkedin.com/in/oliver-schmidt-example', github: 'https://github.com/oliver-schmidt-example' },
+  },
+  {
+    name: 'Grace Kim',
+    email: 'grace.kim@seed.example.com',
+    headline: 'Product manager, B2B education software',
+    summary: 'Seven years in product, five in education technology. I run discovery with real users and measure outcomes.',
+    skills: [sk('project-management', 5, 7), sk('communication', 5, 8), sk('data-analysis', 4, 5), sk('sql', 3, 4), sk('figma', 3, 4)],
+    roles: [
+      { title: 'Senior Product Manager', years: 3, domainId: d('education'), company: 'LearnLoop', period: '2023 - Present', description: 'Owns the advising product used by 60 colleges.' },
+      { title: 'Product Manager', years: 2.5, domainId: d('education'), company: 'LearnLoop', period: '2020 - 2023', description: 'Course planning tools; raised on-time graduation in pilot colleges by 6 points.' },
+      { title: 'Business Analyst', years: 2, domainId: d('saas'), company: 'Tallyhub', period: '2018 - 2020', description: 'Requirements and reporting for an HR product.' },
+    ],
+    education: [{ degreeLevel: 3, field: 'Business Administration', institution: 'Trinity College Dublin', period: '2016 - 2018' }],
+    leadershipLevel: 1,
+    certIds: [c('scrum-master')],
+    preferences: { locations: ['Ireland (remote)', 'Dublin, Ireland'], workModes: ['remote', 'hybrid'], minSalary: 85000 },
+    contact: { phone: '+353 1 555 0110', city: 'Dublin', country: 'Ireland', linkedin: 'https://www.linkedin.com/in/grace-kim-example' },
+  },
+]
+
+/** Applications to create: candidate email, employer email, job title, and an optional final stage. */
+export const APPLICATIONS: { candidate: string; employer: string; job: string; stage?: 'under_review' | 'technical_interview' | 'culture_fit' | 'offer' | 'hired' | 'rejected'; rating?: number }[] = [
+  { candidate: 'alex.morgan', employer: 'maya.chen', job: 'Senior Backend Engineer, Payments API', stage: 'technical_interview' },
+  { candidate: 'alex.morgan', employer: 'daniel.okafor', job: 'Full-Stack Engineer', stage: 'under_review' },
+  { candidate: 'alex.morgan', employer: 'tomas.herrera', job: 'Staff Software Engineer', stage: 'rejected' },
+  { candidate: 'sofia.rossi', employer: 'maya.chen', job: 'Frontend Engineer, Merchant Dashboard', stage: 'offer' },
+  { candidate: 'sofia.rossi', employer: 'tomas.herrera', job: 'Frontend Engineer (Part-Time)' },
+  { candidate: 'jamal.washington', employer: 'tomas.herrera', job: 'DevOps Engineer', stage: 'culture_fit' },
+  { candidate: 'jamal.washington', employer: 'maya.chen', job: 'Engineering Manager, Platform', stage: 'under_review' },
+  { candidate: 'emma.larsson', employer: 'aiko.tanaka', job: 'Data Engineer', stage: 'under_review' },
+  { candidate: 'emma.larsson', employer: 'maya.chen', job: 'Data Analyst, Risk' },
+  { candidate: 'ravi.patel', employer: 'daniel.okafor', job: 'Machine Learning Engineer, Triage', stage: 'technical_interview' },
+  { candidate: 'chloe.dubois', employer: 'priya.raman', job: 'Junior Web Developer', stage: 'hired' },
+  { candidate: 'marcus.johnson', employer: 'tomas.herrera', job: 'Staff Software Engineer', stage: 'under_review' },
+  { candidate: 'marcus.johnson', employer: 'maya.chen', job: 'Engineering Manager, Platform' },
+  { candidate: 'nadia.hussein', employer: 'daniel.okafor', job: 'QA Engineer', stage: 'hired' },
+  { candidate: 'oliver.schmidt', employer: 'aiko.tanaka', job: 'Rust Systems Engineer', stage: 'offer' },
+  { candidate: 'grace.kim', employer: 'lena.fischer', job: 'Senior Product Manager', stage: 'culture_fit' },
+  { candidate: 'grace.kim', employer: 'tomas.herrera', job: 'Technical Project Manager' },
+]
