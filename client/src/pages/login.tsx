@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { loginSchema, type LoginInput } from '@/features/auth/auth.schema'
 import { useAuthStore } from '@/features/auth/auth.store'
+import { GoogleButton } from '@/features/auth/google-button'
 import { useCooldown } from '@/features/auth/use-cooldown'
 import { useLogin } from '@/features/auth/use-login'
 import { useResendVerification } from '@/features/auth/use-resend-verification'
@@ -152,6 +153,7 @@ export default function Login() {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? 'Signing in...' : 'Log in'}
             </Button>
+            <GoogleButton />
             <p className="text-sm text-muted-foreground">
               No account?{' '}
               <Link to="/register" className="text-foreground underline">

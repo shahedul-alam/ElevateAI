@@ -44,6 +44,18 @@ export async function signOutRequest() {
 }
 
 export async function fetchMe() {
+/** Starts Google sign-in. A role means "create the account if new" (/register); without one only existing users get in. */
+export async function googleSignIn(role?: 'candidate' | 'employer') {
+  const { data } = await api.post<{ url: string }>('/auth/sign-in/social', {
+    provider: 'google',
+    callbackURL: callback('/'),
+    errorCallbackURL: callback(role ? '/register' : '/login'),
+    requestSignUp: !!role,
+    additionalData: role ? { role } : undefined,
+  })
+  window.location.assign(data.url)
+}
+
   const { data } = await api.get<{ user: AuthUser }>('/me')
   return data.user
 }

@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { registerSchema, type RegisterInput, type Role } from '@/features/auth/auth.schema'
 import { useAuthStore } from '@/features/auth/auth.store'
+import { GoogleButton } from '@/features/auth/google-button'
 import { useCooldown } from '@/features/auth/use-cooldown'
 import { useRegister } from '@/features/auth/use-register'
 import { useResendVerification } from '@/features/auth/use-resend-verification'
@@ -199,6 +200,7 @@ export default function Register() {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? 'Creating account...' : 'Sign up'}
             </Button>
+            <GoogleButton role={role} />
             <p className="text-sm text-muted-foreground">
               Already have an account?{' '}
               <Link to="/login" className="text-foreground underline">

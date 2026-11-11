@@ -31,6 +31,9 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  // Google sign-in is on only when both are set.
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
   // Only used by `bun run db:seed-admin`.
   ADMIN_EMAIL: z.email().optional(),
   ADMIN_PASSWORD: z.string().min(12).optional(),
@@ -39,6 +42,11 @@ const schema = z.object({
 const parsed = schema.safeParse(process.env)
 if (!parsed.success) {
   console.error('Invalid environment:\n' + z.prettifyError(parsed.error))
+  process.exit(1)
+}
+
+if (!parsed.data.GOOGLE_CLIENT_ID !== !parsed.data.GOOGLE_CLIENT_SECRET) {
+  console.error('Invalid environment: set both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or neither')
   process.exit(1)
 }
 

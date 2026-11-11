@@ -1,8 +1,9 @@
 import { betterAuth } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { APIError, createAuthMiddleware, getOAuthState } from 'better-auth/api'
 import { prisma } from '../../config/db'
 import { env } from '../../config/env'
+import { resolveSocialRole, SIGNUP_ROLES } from './auth.role'
 import { sendMail } from './mail.service'
 import {
   approveEmailChangeMail,
@@ -11,7 +12,7 @@ import {
   verifyEmailMail,
 } from './mail.templates'
 
-export const SIGNUP_ROLES = ['candidate', 'employer'] as const
+export { SIGNUP_ROLES }
 export const CLIENT_IP_HEADER = 'x-client-ip'
 
 export const auth = betterAuth({
@@ -46,6 +47,18 @@ export const auth = betterAuth({
       sendMail({ to: user.email, ...verifyEmailMail(url) })
     },
   },
+  // Existing users sign in; a new account needs requestSignUp, which only /register sends. Account linking
+  // stays at Better Auth's default: same-email accounts link only when both sides are verified.
+  socialProviders:
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+            disableImplicitSignUp: true,
+          },
+        }
+      : {},
   user: {
     // Verified users approve from their current address first, then verify the new one, so a
     // hijacked session cannot silently move the account to another mailbox.
@@ -63,6 +76,22 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    user: {
+      create: {
+        // Social sign-up has no /sign-up/email check, so the role is decided here, never taken from the profile.
+        before: async (user, ctx) => {
+          if (ctx?.path !== '/callback/:id') return
+          const state = await getOAuthState<{ role?: unknown }>()
+          return { data: { ...user, role: resolveSocialRole(state?.role) } }
+        },
+        after: async (user, ctx) => {
+          if (ctx?.path !== '/callback/:id' || (user as { role?: string }).role !== 'employer') return
+          // Dynamic import: company.service pulls in modules that import this file.
+          const { ensureCompany } = await import('../company/company.service')
+          await ensureCompany(user.id, user.name).catch((e) => console.error(e))
+        },
+      },
+    },
     session: {
       // Covers every way of getting a session (login, password-reset and verification auto sign-in).
       create: {
@@ -101,6 +130,7 @@ export const auth = betterAuth({
     customRules: {
       '/sign-in/email': { window: 60, max: 5 },
       '/sign-up/email': { window: 60, max: 5 },
+      '/sign-in/social': { window: 60, max: 10 },
       '/request-password-reset': { window: 60, max: 3 },
       '/send-verification-email': { window: 60, max: 3 },
       '/change-email': { window: 60, max: 3 },
