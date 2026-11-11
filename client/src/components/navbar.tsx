@@ -26,7 +26,6 @@ import { SESSION_KEY } from '@/features/auth/use-session'
 import { NotificationBell } from '@/features/notifications/notification-bell'
 import { cn } from '@/lib/utils'
 
-// /dashboard is a placeholder: that route does not exist yet.
 const candidateLinks = [
   { to: '/jobs', label: 'Jobs' },
   { to: '/companies', label: 'Companies' },
@@ -42,7 +41,6 @@ const employerLinks = [
   { to: '/employer/jobs', label: 'Your jobs' },
   { to: '/employer/hiring', label: 'Hiring' },
   { to: '/employer/company', label: 'Company profile' },
-  { to: '/dashboard', label: 'Dashboard' },
 ]
 
 const adminLinks = [

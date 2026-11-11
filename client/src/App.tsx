@@ -7,6 +7,7 @@ import { useSession } from '@/features/auth/use-session'
 import Admin from '@/pages/admin'
 import Applications from '@/pages/applications'
 import CompanyPage from '@/pages/company'
+import Dashboard from '@/pages/dashboard'
 import Companies from '@/pages/companies'
 import EmployerApplicants from '@/pages/employer-applicants'
 import EmployerHiring from '@/pages/employer-hiring'
@@ -55,6 +56,7 @@ function App() {
         <Route path="/employer/hiring" element={<EmployerHiring />} />
         <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
         <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />

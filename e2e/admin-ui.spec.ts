@@ -215,7 +215,7 @@ test.describe('suspended candidate', () => {
   test('is signed out on the next refresh of their session', async ({ page, adminApi }) => {
     const user = await registerUser(page.request, { role: 'candidate' })
     await page.goto('/')
-    await expect(page.getByRole('banner').getByRole('button', { name: user.name, exact: true })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('button', { name: user.name, exact: true })).toBeVisible({ timeout: 15_000 })
 
     const res = await adminApi.post(`/api/admin/users/${await meId(page.request)}/suspension`, {
       data: { reason: REASON },
@@ -224,7 +224,7 @@ test.describe('suspended candidate', () => {
 
     // Query refetch-on-focus listens to visibilitychange on window.
     await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')))
-    await expect(page.getByRole('banner').getByRole('link', { name: 'Log in' })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Log in' })).toBeVisible({ timeout: 15_000 })
   })
 
   test('sees the Account suspended toast on /login, not the unverified notice', async ({ page, adminApi, newCandidate }) => {

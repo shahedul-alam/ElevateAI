@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { RequireRole } from '@/components/require-role'
+import { Stat } from '@/components/stat'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -80,18 +81,6 @@ function AdminPage() {
       </div>
     </main>
   )
-}
-
-function Stat({ label, value, to }: { label: string; value: number; to?: string }) {
-  const body = (
-    <Card className={to ? 'transition-colors hover:bg-accent/40' : undefined}>
-      <CardContent>
-        <p className="text-2xl font-bold">{value}</p>
-        <p className="text-sm text-muted-foreground">{label}</p>
-      </CardContent>
-    </Card>
-  )
-  return to ? <Link to={to}>{body}</Link> : body
 }
 
 function OverviewTab() {
