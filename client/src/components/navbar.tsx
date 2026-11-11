@@ -34,6 +34,12 @@ const candidateLinks = [
   { to: '/dashboard', label: 'Dashboard' },
 ]
 
+// Signed-out visitors only get the public pages; the rest would bounce them to the login.
+const guestLinks = [
+  { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
+]
+
 // Employers have no resume; they manage their postings instead.
 const employerLinks = [
   { to: '/jobs', label: 'Jobs' },
@@ -79,7 +85,13 @@ export function Navbar() {
   const status = useAuthStore((s) => s.status)
   const signOut = useSignOut()
   const links =
-    user?.role === 'employer' ? employerLinks : user?.role === 'admin' ? adminLinks : candidateLinks
+    user?.role === 'employer'
+      ? employerLinks
+      : user?.role === 'admin'
+        ? adminLinks
+        : user
+          ? candidateLinks
+          : guestLinks
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">

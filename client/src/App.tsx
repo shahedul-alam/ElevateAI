@@ -1,6 +1,7 @@
-import { Link, Route, Routes } from 'react-router'
+import { Route, Routes } from 'react-router'
 
 import { Navbar } from '@/components/navbar'
+import { SiteFooter } from '@/components/site-footer'
 import { Toaster } from '@/components/ui/sonner'
 import { useResetCacheOnUserChange } from '@/features/auth/use-reset-cache-on-user-change'
 import { useSession } from '@/features/auth/use-session'
@@ -61,11 +62,7 @@ function App() {
         <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <footer className="mx-auto max-w-6xl px-4 py-8 text-center text-xs text-muted-foreground">
-        <Link to="/privacy" className="underline">
-          AI privacy notice
-        </Link>
-      </footer>
+      <SiteFooter />
       <Toaster richColors />
     </>
   )
