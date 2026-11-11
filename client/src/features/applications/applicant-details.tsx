@@ -5,8 +5,9 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { getApiError } from '@/lib/api'
-import { STATUS_LABEL, type Applicant } from './applications.api'
+import type { Applicant } from './applications.api'
 import { RatingStars } from './rating-stars'
+import { StatusHistory } from './status-history'
 import {
   useAddNote,
   useApplicationActivity,
@@ -115,17 +116,7 @@ export function ApplicantDetails({
           <section>
             <h3 className="mb-2 text-sm font-medium">Status history</h3>
             {activity.data ? (
-              <ol className="flex flex-col gap-2 text-sm">
-                {activity.data.history.map((h, i) => (
-                  <li key={i} className="flex justify-between gap-3">
-                    <span>
-                      {h.fromStatus ? `${STATUS_LABEL[h.fromStatus]} → ` : ''}
-                      {STATUS_LABEL[h.toStatus]}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{when(h.createdAt)}</span>
-                  </li>
-                ))}
-              </ol>
+              <StatusHistory history={activity.data.history} />
             ) : (
               <p className="text-xs text-muted-foreground">Loading...</p>
             )}

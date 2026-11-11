@@ -6,6 +6,7 @@ import { RequireRole } from '@/components/require-role'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PIPELINE, STATUS_LABEL, STATUS_STYLE } from '@/features/applications/applications.api'
+import { StatusHistory } from '@/features/applications/status-history'
 import {
   DEFAULT_MY_FILTERS,
   MY_SORTS,
@@ -153,6 +154,17 @@ function ApplicationsPage() {
                     }
                     footer={`Applied ${new Date(a.createdAt).toLocaleDateString()}${a.jobStatus === 'closed' ? ' · job closed' : ''}`}
                   />
+                  <details className="group mt-1 px-1">
+                    <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 rounded-md text-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+                      <span className="transition-transform group-open:rotate-90" aria-hidden="true">
+                        ›
+                      </span>
+                      Status history
+                    </summary>
+                    <div className="pb-2 pl-4 pt-1">
+                      <StatusHistory history={a.history} />
+                    </div>
+                  </details>
                 </li>
               ))}
             </ul>

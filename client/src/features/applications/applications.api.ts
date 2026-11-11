@@ -22,6 +22,7 @@ export type MyApplication = {
   matchScore: number
   engineVersion: string
   createdAt: string
+  history: { fromStatus: ApplicationStatus | null; toStatus: ApplicationStatus; createdAt: string }[]
 }
 
 /** The resume the candidate applied with, as the employer sees it (no personal preferences). */

@@ -101,6 +101,11 @@ export async function listCandidateApplications(candidateId: string) {
     include: {
       job: { select: { id: true, status: true, employer: { select: { name: true, company: { select: companyRefSelect } } } } },
       jobVersion: true,
+      // Explicit select: history is shown to the candidate, so a column added later must not leak.
+      history: {
+        select: { fromStatus: true, toStatus: true, createdAt: true },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   })
@@ -128,6 +133,7 @@ export async function listCandidateApplications(candidateId: string) {
       matchScore: a.matchScore,
       engineVersion: a.engineVersion,
       createdAt: a.createdAt,
+      history: a.history.map((h) => ({ fromStatus: h.fromStatus, toStatus: h.toStatus, createdAt: h.createdAt })),
     })),
   }
 }
