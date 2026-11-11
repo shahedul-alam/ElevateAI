@@ -1,0 +1,11 @@
+# SITE_ADDRESS: your domain in production (auto-HTTPS); "localhost" uses Caddy's internal cert.
+{$SITE_ADDRESS:localhost} {
+	handle /api/* {
+		reverse_proxy server:4000
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

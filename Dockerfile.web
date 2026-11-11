@@ -1,0 +1,12 @@
+FROM oven/bun:1.4.4 AS build
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY client/package.json client/
+COPY server/package.json server/
+RUN bun install --frozen-lockfile
+COPY client client
+RUN bun --filter @elevateai/client build
+
+FROM caddy:2
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/client/dist /srv
