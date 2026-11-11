@@ -11,15 +11,14 @@ concurrency:
 
 env:
   BUN_VERSION: 1.4.4
+  # Prisma config and env validation need these to load; the e2e stack overrides them per server.
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/elevateai
+  BETTER_AUTH_SECRET: ci-only-secret-not-for-real-use-0123456789
 
 jobs:
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      # Dummy values so config/env.ts validation passes; no DB is touched by unit tests.
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/elevateai
-      BETTER_AUTH_SECRET: ci-only-secret-not-for-real-use-0123456789
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
