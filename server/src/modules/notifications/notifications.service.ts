@@ -6,7 +6,7 @@ import type { NotificationsQuery } from './notifications.schema'
 type Input = {
   userId: string
   type: NotificationType
-  applicationId: string
+  applicationId?: string
   title: string
   body: string
   /** An internal path such as `/applications`. */

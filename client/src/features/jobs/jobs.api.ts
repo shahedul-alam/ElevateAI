@@ -10,6 +10,8 @@ export type JobDetail = {
   id: string
   status: JobStatus
   publishedAt: string | null
+  suspendedAt?: string | null
+  suspendedReason?: string | null
   versionId: string
   content: JobContent
   termNames: Record<string, string>
@@ -22,6 +24,9 @@ export type EmployerJobSummary = {
   status: JobStatus
   title: string
   publishedAt: string | null
+  /** Set while an admin has the job suspended. */
+  suspendedAt?: string | null
+  suspendedReason?: string | null
   updatedAt: string
 }
 

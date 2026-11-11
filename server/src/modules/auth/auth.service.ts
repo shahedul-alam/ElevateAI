@@ -50,6 +50,8 @@ export async function loginUser(input: LoginInput, requestHeaders: Headers) {
     }
     // Better Auth already re-sent the verification mail (sendOnSignIn).
     if (isAPIError(err) && err.status === 'FORBIDDEN') {
+      // The session hook in auth.config.ts uses the same status for suspended accounts.
+      if (err.body?.message === 'Account suspended') throw new HttpError(403, 'Account suspended')
       throw new HttpError(403, 'Email not verified')
     }
     throw err

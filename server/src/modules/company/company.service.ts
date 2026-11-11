@@ -97,7 +97,10 @@ export async function removeOwnImage(user: Owner, kind: ImageKind) {
 }
 
 export async function getPublicCompany(id: string) {
-  const company = await prisma.company.findUnique({ where: { id }, include: withImages })
+  const company = await prisma.company.findFirst({
+    where: { id, owner: { suspendedAt: null } },
+    include: withImages,
+  })
   if (!company) throw new HttpError(404, 'Company not found')
   const dto = toDto(company)
   const positions = await listPublicJobs({ q: '', companyId: id, limit: 50 })
@@ -110,6 +113,7 @@ export async function listCompanies(query: CompanyListQuery) {
   if (query.cursor && !position) throw new HttpError(400, 'Invalid cursor')
   const rows = await prisma.company.findMany({
     where: {
+      owner: { suspendedAt: null },
       ...(query.q && { name: { contains: query.q, mode: 'insensitive' } }),
       ...(query.domainId && { domainId: query.domainId }),
       ...(position && afterPosition(position)),
@@ -121,7 +125,7 @@ export async function listCompanies(query: CompanyListQuery) {
   const page = rows.slice(0, query.limit)
   const counts = await prisma.job.groupBy({
     by: ['employerId'],
-    where: { status: 'active', employerId: { in: page.map((c) => c.ownerId) } },
+    where: { status: 'active', suspendedAt: null, employerId: { in: page.map((c) => c.ownerId) } },
     _count: { _all: true },
   })
   const open = new Map(counts.map((c) => [c.employerId, c._count._all]))
@@ -148,9 +152,13 @@ export async function setVerified(id: string, verified: boolean) {
   return { id, verified }
 }
 
+/** Always called before `getPublicImage`, so this is also where a suspended owner's images are hidden. */
 export async function getPublicImageMeta(id: string, kind: ImageKind) {
-  const meta = await getImageMeta(id, kind)
-  if (!meta) throw new HttpError(404, 'Not found')
+  const [meta, visible] = await Promise.all([
+    getImageMeta(id, kind),
+    prisma.company.count({ where: { id, owner: { suspendedAt: null } } }),
+  ])
+  if (!meta || !visible) throw new HttpError(404, 'Not found')
   return meta
 }
 

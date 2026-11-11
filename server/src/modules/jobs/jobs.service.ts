@@ -11,6 +11,8 @@ type JobRow = {
   id: string
   status: 'draft' | 'active' | 'closed'
   publishedAt: Date | null
+  suspendedAt: Date | null
+  suspendedReason: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -34,6 +36,8 @@ async function toDto(job: JobRow, version: VersionRow) {
     id: job.id,
     status: job.status,
     publishedAt: job.publishedAt,
+    suspendedAt: job.suspendedAt,
+    suspendedReason: job.suspendedReason,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     versionId: version.id,
@@ -99,6 +103,8 @@ export async function listEmployerJobs(employerId: string) {
     status: j.status,
     title: j.currentVersion ? contentOf(j.currentVersion).title : '',
     publishedAt: j.publishedAt,
+    suspendedAt: j.suspendedAt,
+    suspendedReason: j.suspendedReason,
     updatedAt: j.updatedAt,
   }))
 }
@@ -111,6 +117,7 @@ export async function getEmployerJob(employerId: string, id: string) {
 export async function updateJob(employerId: string, id: string, input: JobInput) {
   const { job } = await loadOwned(employerId, id)
   if (job.status === 'closed') throw new HttpError(409, 'A closed job cannot be edited')
+  if (job.suspendedAt) throw new HttpError(409, 'A suspended job cannot be edited')
   await assertCatalogTerms(input)
   // An active job is public and ranks applicants, so it may not drop to a requirement-free post.
   if (job.status === 'active') requireRequirement(input)
@@ -130,6 +137,8 @@ export type JobAction = keyof typeof TRANSITIONS
 export async function changeJobStatus(employerId: string, id: string, action: JobAction) {
   const { job, version } = await loadOwned(employerId, id)
   const { from, to } = TRANSITIONS[action]
+  // Closing stays allowed so an employer can end a suspended post; publish/unpublish would dodge the takedown.
+  if (job.suspendedAt && action !== 'close') throw new HttpError(409, `Cannot ${action} a suspended job`)
   if (job.status !== from) throw new HttpError(409, `Cannot ${action} a ${job.status} job`)
   if (action === 'publish') requireRequirement(contentOf(version))
 
@@ -159,8 +168,9 @@ export async function listPublicJobs(query: JobListQuery) {
   const rows = await prisma.job.findMany({
     where: {
       status: 'active',
+      suspendedAt: null,
       currentVersion: { AND: and },
-      ...(query.companyId && { employer: { company: { id: query.companyId } } }),
+      employer: { suspendedAt: null, ...(query.companyId && { company: { id: query.companyId } }) },
     },
     include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
@@ -197,7 +207,7 @@ export async function listPublicJobs(query: JobListQuery) {
 
 export async function getPublicJob(id: string) {
   const job = await prisma.job.findFirst({
-    where: { id, status: 'active' },
+    where: { id, status: 'active', suspendedAt: null, employer: { suspendedAt: null } },
     include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
   })
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')

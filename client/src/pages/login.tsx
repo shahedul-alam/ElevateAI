@@ -62,6 +62,11 @@ export default function Login() {
       onError: (err) => {
         const { status, message, details } = getApiError(err)
 
+        if (status === 403 && message === 'Account suspended') {
+          toast.error('Account suspended', { description: 'This account has been suspended by an administrator.' })
+          return
+        }
+
         if (status === 403) {
           // The server re-sent the verification mail when it refused the login.
           setUnverified(values.email)

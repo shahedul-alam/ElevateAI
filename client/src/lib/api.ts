@@ -1,4 +1,5 @@
 import axios, { isAxiosError } from 'axios'
+import { toast } from 'sonner'
 
 import { useAuthStore } from '@/features/auth/auth.store'
 
@@ -43,6 +44,11 @@ api.interceptors.response.use(undefined, (err: unknown) => {
   if (isAxiosError(err) && err.response?.status === 401) {
     const url = err.config?.url ?? ''
     if (!url.startsWith('/auth/') && url !== '/me') useAuthStore.getState().clearUser()
+  }
+  // An admin suspended this account mid-session: every protected call now answers 403.
+  if (isAxiosError(err) && err.response?.status === 403 && getApiError(err).message === 'Account suspended') {
+    useAuthStore.getState().clearUser()
+    toast.error('Account suspended', { id: 'suspended', description: 'An administrator suspended this account.' })
   }
   return Promise.reject(err)
 })

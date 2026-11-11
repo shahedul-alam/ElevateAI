@@ -144,7 +144,9 @@ function JobFormPage() {
 
   const remember = (termId: string, name: string) => setPicked((n) => ({ ...n, [termId]: name }))
   const saving = create.isPending || update.isPending
-  const closed = job.data?.status === 'closed'
+  const suspended = !!job.data?.suspendedAt
+  // Closed and suspended jobs are read-only; the preview tab still works.
+  const closed = job.data?.status === 'closed' || suspended
 
   const onSubmit = (values: JobFormValues) => {
     const content = toJobPayload(values)
@@ -210,10 +212,18 @@ function JobFormPage() {
           <p className="text-sm text-muted-foreground">
             Candidates are scored against the requirements below, so be specific.
           </p>
-          {closed && (
+          {suspended ? (
             <p role="status" className="mt-2 text-sm text-destructive">
-              This job is closed and can no longer be edited. You can still preview it.
+              An administrator suspended this job
+              {job.data?.suspendedReason ? `: ${job.data.suspendedReason}` : '.'} It is hidden from candidates and
+              cannot be edited. You can still preview it.
             </p>
+          ) : (
+            closed && (
+              <p role="status" className="mt-2 text-sm text-destructive">
+                This job is closed and can no longer be edited. You can still preview it.
+              </p>
+            )
           )}
         </div>
 

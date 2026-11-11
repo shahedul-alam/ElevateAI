@@ -178,6 +178,6 @@ Estimate ≈ 7–8 weeks for one full-time developer using AI coding agents; pha
 
 1. Confirm domain strategy (shared parent domain for cookies) and target regions.
 2. Confirm that email + in-app alerts are the full scope of "messaging".
-3. Employers do not need approval to post jobs (MVP). Admins can grant a "Verified Employer" badge on a company page (built); admin suspension of users and jobs is not built. Consider an admin review queue for company images and names, a cache purge or takedown path for removed images once a CDN is used, and moving images to object storage.
+3. Employers do not need approval to post jobs (MVP). Admins can grant a "Verified Employer" badge on a company page (built); admin suspension of users and jobs is built (`modules/admin`, `/admin` dashboard; no audit log yet). Consider an admin review queue for company images and names, a cache purge or takedown path for removed images once a CDN is used, and moving images to object storage.
 4. Define the Admin's MVP capabilities (assumed: view/suspend users and jobs only).
 5. AI provider: OpenAI first (GPT-6.1 Sol and GPT-6 Luna, see 1c) or Claude primary as in section 2. Also confirm the per-user quotas and that candidates agree to their resume text being sent to an LLM provider (privacy notice).

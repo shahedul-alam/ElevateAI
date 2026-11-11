@@ -28,6 +28,17 @@ export function statusMessage(status: ApplicationStatus, jobTitle: string, compa
   }
 }
 
+/** What an employer is told when an admin suspends or restores one of their jobs. */
+export function moderationMessage(action: 'suspended' | 'restored', jobTitle: string, reason?: string | null) {
+  if (action === 'restored') {
+    return { title: `Job restored: ${jobTitle}`, body: `${jobTitle} was reviewed and can be published again.` }
+  }
+  return {
+    title: `Job suspended: ${jobTitle}`,
+    body: `${jobTitle} is hidden from candidates while it is under review.${reason ? ` Reason: ${reason}` : ''}`,
+  }
+}
+
 /** What an employer is told when someone applies. */
 export function receivedMessage(candidateName: string, jobTitle: string, score: number) {
   return {

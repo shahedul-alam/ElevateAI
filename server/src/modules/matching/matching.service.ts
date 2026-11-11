@@ -56,7 +56,7 @@ export async function nameBreakdown(b: Breakdown) {
 /** Live gap view: the current profile against the job's current requirements. */
 export async function getGap(userId: string, jobId: string) {
   const job = await prisma.job.findFirst({
-    where: { id: jobId, status: 'active' },
+    where: { id: jobId, status: 'active', suspendedAt: null, employer: { suspendedAt: null } },
     include: { currentVersion: true },
   })
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')
@@ -83,7 +83,12 @@ export async function getGap(userId: string, jobId: string) {
 export async function recommendJobs(userId: string, limit: number) {
   const profile = await loadCurrentProfile(userId)
   const jobs = await prisma.job.findMany({
-    where: { status: 'active', applications: { none: { candidateId: userId } } },
+    where: {
+      status: 'active',
+      suspendedAt: null,
+      employer: { suspendedAt: null },
+      applications: { none: { candidateId: userId } },
+    },
     include: { currentVersion: true, employer: { select: { name: true, company: { select: companyRefSelect } } } },
     orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
     take: RECOMMEND_POOL,

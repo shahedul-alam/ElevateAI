@@ -45,6 +45,12 @@ const employerLinks = [
   { to: '/dashboard', label: 'Dashboard' },
 ]
 
+const adminLinks = [
+  { to: '/jobs', label: 'Jobs' },
+  { to: '/companies', label: 'Companies' },
+  { to: '/admin', label: 'Admin' },
+]
+
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   cn(
     'text-sm font-medium transition-colors hover:text-foreground',
@@ -74,7 +80,8 @@ export function Navbar() {
   const user = useAuthStore((s) => s.user)
   const status = useAuthStore((s) => s.status)
   const signOut = useSignOut()
-  const links = user?.role === 'employer' ? employerLinks : candidateLinks
+  const links =
+    user?.role === 'employer' ? employerLinks : user?.role === 'admin' ? adminLinks : candidateLinks
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">

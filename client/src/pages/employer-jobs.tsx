@@ -190,17 +190,26 @@ function JobsPage() {
                         <p className="text-xs text-muted-foreground">
                           {STATUS_LABEL[job.status]} · updated {new Date(job.updatedAt).toLocaleDateString()}
                         </p>
+                        {job.suspendedAt && (
+                          <p role="note" className="mt-1 text-xs font-medium text-destructive">
+                            Suspended by an administrator and hidden from candidates
+                            {job.suspendedReason ? `: ${job.suspendedReason}` : '.'}
+                          </p>
+                        )}
                       </div>
                       <div className="relative z-10 flex items-center gap-2">
                         <Button variant="outline" size="sm" asChild>
                           <Link to={`/employer/jobs/${job.id}/applicants`}>Applicants</Link>
                         </Button>
-                        {job.status !== 'closed' && (
+                        {job.status !== 'closed' && !job.suspendedAt && (
                           <Button variant="outline" size="sm" asChild>
                             <Link to={`/employer/jobs/${job.id}/edit`}>Edit</Link>
                           </Button>
                         )}
-                        {ACTIONS[job.status].map(({ action, label }) => (
+                        {/* A suspended job can only be closed; publish/unpublish would dodge the takedown. */}
+                        {ACTIONS[job.status]
+                          .filter(({ action }) => !job.suspendedAt || action === 'close')
+                          .map(({ action, label }) => (
                           <Button
                             key={action}
                             variant={action === 'publish' ? 'default' : 'outline'}

@@ -58,6 +58,22 @@ export const auth = betterAuth({
     additionalFields: {
       // input stays true so sign-up can choose a role; the hook below restricts it.
       role: { type: 'string', required: true, defaultValue: 'candidate' },
+      // Read-only here: only the admin endpoints set it. input:false keeps it out of sign-up/update-user.
+      suspendedAt: { type: 'date', required: false, input: false },
+    },
+  },
+  databaseHooks: {
+    session: {
+      // Covers every way of getting a session (login, password-reset and verification auto sign-in).
+      create: {
+        before: async (session) => {
+          const user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            select: { suspendedAt: true },
+          })
+          if (user?.suspendedAt) throw new APIError('FORBIDDEN', { message: 'Account suspended' })
+        },
+      },
     },
   },
   hooks: {
@@ -70,6 +86,9 @@ export const auth = betterAuth({
       }
       if (ctx.path === '/update-user' && ctx.body && 'role' in ctx.body) {
         throw new APIError('BAD_REQUEST', { message: 'role cannot be changed' })
+      }
+      if (ctx.path === '/update-user' && ctx.body && 'suspendedAt' in ctx.body) {
+        throw new APIError('BAD_REQUEST', { message: 'suspendedAt cannot be changed' })
       }
     }),
   },

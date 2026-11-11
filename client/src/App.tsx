@@ -4,6 +4,7 @@ import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/sonner'
 import { useResetCacheOnUserChange } from '@/features/auth/use-reset-cache-on-user-change'
 import { useSession } from '@/features/auth/use-session'
+import Admin from '@/pages/admin'
 import Applications from '@/pages/applications'
 import CompanyPage from '@/pages/company'
 import Companies from '@/pages/companies'
@@ -54,6 +55,7 @@ function App() {
         <Route path="/employer/hiring" element={<EmployerHiring />} />
         <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
         <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

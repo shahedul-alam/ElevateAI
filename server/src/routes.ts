@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { adminRouter } from './modules/admin/admin.routes'
 import { applicationsRouter } from './modules/applications/applications.routes'
 import { candidateProfileRouter } from './modules/candidate-profile/candidate-profile.routes'
 import { catalogRouter } from './modules/catalog/catalog.routes'
@@ -26,4 +27,5 @@ apiRouter.use(matchingRouter)
 apiRouter.use(jobsRouter)
 apiRouter.use(applicationsRouter)
 apiRouter.use(companyRouter)
+apiRouter.use(adminRouter)
 apiRouter.use(notificationsRouter)

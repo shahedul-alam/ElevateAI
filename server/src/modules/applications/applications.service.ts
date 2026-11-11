@@ -36,7 +36,7 @@ const isUniqueViolation = (err: unknown) => (err as { code?: string })?.code ===
 
 export async function applyToJob(candidateId: string, jobId: string) {
   const job = await prisma.job.findFirst({
-    where: { id: jobId, status: { in: ['active', 'closed'] } },
+    where: { id: jobId, status: { in: ['active', 'closed'] }, suspendedAt: null, employer: { suspendedAt: null } },
     include: { currentVersion: true },
   })
   if (!job?.currentVersion) throw new HttpError(404, 'Job not found')

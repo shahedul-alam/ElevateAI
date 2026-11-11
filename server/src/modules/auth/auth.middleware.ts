@@ -16,6 +16,7 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
     headers: fromNodeHeaders(req.headers),
   });
   if (!session) throw new HttpError(401, "Unauthorized");
+  if (session.user.suspendedAt) throw new HttpError(403, "Account suspended");
   req.auth = session;
   next();
 };
