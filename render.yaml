@@ -12,10 +12,16 @@ services:
         value: production
       - key: TRUST_PROXY
         value: '2' # Vercel + Render; check the 6th bad login answers 429
-      - key: REQUIRE_EMAIL_VERIFICATION
-        value: 'false' # set 'true' once SMTP_URL is configured
-      - key: AI_ENABLED
-        value: 'false' # set 'true' and add OPENAI_API_KEY to enable AI features
+      - key: REQUIRE_EMAIL_VERIFICATION # 'true' once SMTP_URL works (Render free blocks 25/465/587: use Brevo port 2525)
+        sync: false
+      - key: AI_ENABLED # 'true' together with OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID # both or neither; client needs VITE_GOOGLE_AUTH=true on Vercel
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       - key: DATABASE_URL # Neon pooled URL
         sync: false
       - key: REDIS_URL # Render Key Value internal URL
