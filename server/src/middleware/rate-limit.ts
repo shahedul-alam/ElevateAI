@@ -2,7 +2,7 @@ import type { Request } from 'express'
 import { rateLimit } from 'express-rate-limit'
 import { RedisStore } from 'rate-limit-redis'
 import { env } from '../config/env'
-import { redis } from '../config/redis'
+import { limiterRedis } from '../config/redis'
 
 type Options = { name: string; windowMs: number; limit: number; message: string; key?: (req: Request) => string }
 
@@ -17,7 +17,7 @@ export const limiter = ({ name, windowMs, limit, message, key }: Options) =>
     passOnStoreError: true,
     store: new RedisStore({
       prefix: `rl:${name}:`,
-      sendCommand: (command: string, ...args: string[]) => redis.call(command, ...args) as Promise<never>,
+      sendCommand: (command: string, ...args: string[]) => limiterRedis.call(command, ...args) as Promise<never>,
     }),
     handler: (_req, res) => {
       res.status(429).json({ error: { message } })
