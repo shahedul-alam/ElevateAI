@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: elevateai-server
+    runtime: docker
+    plan: free
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: '2' # Vercel + Render; check the 6th bad login answers 429
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: 'false' # set 'true' once SMTP_URL is configured
+      - key: AI_ENABLED
+        value: 'false' # set 'true' and add OPENAI_API_KEY to enable AI features
+      - key: DATABASE_URL # Neon pooled URL
+        sync: false
+      - key: REDIS_URL # Render Key Value internal URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+      - key: BETTER_AUTH_URL # https://<project>.vercel.app
+        sync: false
+      - key: CLIENT_ORIGIN # same value as BETTER_AUTH_URL
+        sync: false
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
