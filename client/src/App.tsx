@@ -35,34 +35,38 @@ function App() {
 
   return (
     <>
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/account" element={<Account />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/resume" element={<Resume />} />
-        <Route path="/resume/preview" element={<ResumePreview />} />
-        <Route path="/jobs" element={<Jobs />} />
-        <Route path="/jobs/:id" element={<JobDetail />} />
-        <Route path="/companies" element={<Companies />} />
-        <Route path="/companies/:id" element={<CompanyPage />} />
-        <Route path="/employer/company" element={<EmployerCompany />} />
-        <Route path="/employer/jobs" element={<EmployerJobs />} />
-        <Route path="/applications" element={<Applications />} />
-        <Route path="/employer/jobs/:id/applicants" element={<EmployerApplicants />} />
-        <Route path="/employer/hiring" element={<EmployerHiring />} />
-        <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
-        <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <SiteFooter />
+      <div className="flex min-h-svh flex-col">
+        <Navbar />
+        <div className="flex-1">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/resume" element={<Resume />} />
+            <Route path="/resume/preview" element={<ResumePreview />} />
+            <Route path="/jobs" element={<Jobs />} />
+            <Route path="/jobs/:id" element={<JobDetail />} />
+            <Route path="/companies" element={<Companies />} />
+            <Route path="/companies/:id" element={<CompanyPage />} />
+            <Route path="/employer/company" element={<EmployerCompany />} />
+            <Route path="/employer/jobs" element={<EmployerJobs />} />
+            <Route path="/applications" element={<Applications />} />
+            <Route path="/employer/jobs/:id/applicants" element={<EmployerApplicants />} />
+            <Route path="/employer/hiring" element={<EmployerHiring />} />
+            <Route path="/employer/jobs/new" element={<EmployerJobForm />} />
+            <Route path="/employer/jobs/:id/edit" element={<EmployerJobForm />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
+        <SiteFooter />
+      </div>
       <Toaster richColors />
     </>
   )
