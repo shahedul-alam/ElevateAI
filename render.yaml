@@ -3,6 +3,7 @@ services:
     name: elevateai-server
     runtime: docker
     plan: free
+    region: singapore # must match the Key Value region (internal Redis URL) and Neon (ap-southeast-1)
     dockerfilePath: ./server/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
